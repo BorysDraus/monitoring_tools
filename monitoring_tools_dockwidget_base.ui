@@ -1,0 +1,605 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DockWidget</class>
+ <widget class="QDockWidget" name="DockWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>475</width>
+    <height>820</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Monitoring GIS Tools  v1.0.1_beta</string>
+  </property>
+  <widget class="QWidget" name="dockWidgetContents">
+   <layout class="QGridLayout" name="gridLayout_3">
+    <item row="0" column="0">
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QScrollArea" name="scrollArea">
+        <property name="widgetResizable">
+         <bool>true</bool>
+        </property>
+        <widget class="QWidget" name="scrollAreaWidgetContents">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>-15</y>
+           <width>436</width>
+           <height>1096</height>
+          </rect>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_2">
+          <item row="0" column="0">
+           <layout class="QGridLayout" name="gridLayout">
+            <item row="9" column="0" colspan="2">
+             <widget class="Line" name="line_2">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="40" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_missing_impacts">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0217: Brak wprawdzonych oddziaywań lub inf. o braku oddziaływań</string>
+              </property>
+             </widget>
+            </item>
+            <item row="41" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_missing_threats">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0218: Brak wprawdzonych zagrożeń lub inf. o braku zagrożeń</string>
+              </property>
+             </widget>
+            </item>
+            <item row="39" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_missing_availability_information">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0216: Brak infrormacji o dostępności</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Dane wejściowe:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="53" column="0">
+             <widget class="QLabel" name="label_12">
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
+            <item row="10" column="0">
+             <widget class="QLabel" name="label_10">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Narzędzia:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="43" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_10">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>C_0220: Brak dokumentacji fotograficznej</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0" colspan="2">
+             <widget class="Line" name="line_3">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="33" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_gen_assasement_exist_desc_assasement">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0210: Brak oceny ogólnej - istniejąca ocena opisowa</string>
+              </property>
+             </widget>
+            </item>
+            <item row="13" column="0">
+             <widget class="QLabel" name="label_9">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Kontrole:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="47" column="0" colspan="2">
+             <widget class="QLabel" name="label_11">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Raport:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="45" column="0">
+             <widget class="QLabel" name="label_7">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="frameShape">
+               <enum>QFrame::NoFrame</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Sunken</enum>
+              </property>
+              <property name="text">
+               <string>Baza-mapa:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0" colspan="2">
+             <widget class="Line" name="line">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLineEdit" name="lineEdit_dBase_directory"/>
+            </item>
+            <item row="18" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_duplicates">
+              <property name="text">
+               <string>C_0102: Powtarzające się numery powierzchni (duplikaty)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="17" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButtonNumerationValidatingLayer">
+              <property name="text">
+               <string>C_0101: Poprawność numeracji</string>
+              </property>
+             </widget>
+            </item>
+            <item row="48" column="0">
+             <widget class="QLabel" name="label_info">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <widget class="QLabel" name="label_5">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Tabela atrybutów, oznaczenie kolumn:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="44" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>C_0221: Brak oceny zgodności z dokumentacją</string>
+              </property>
+             </widget>
+            </item>
+            <item row="52" column="0">
+             <widget class="QLabel" name="label_warning">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="palette">
+               <palette>
+                <active>
+                 <colorrole role="WindowText">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="255">
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                 <colorrole role="Text">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="255">
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                 <colorrole role="PlaceholderText">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="128">
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                </active>
+                <inactive>
+                 <colorrole role="WindowText">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="255">
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                 <colorrole role="Text">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="255">
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                 <colorrole role="PlaceholderText">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="128">
+                    <red>255</red>
+                    <green>0</green>
+                    <blue>0</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                </inactive>
+                <disabled>
+                 <colorrole role="WindowText">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="255">
+                    <red>120</red>
+                    <green>120</green>
+                    <blue>120</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                 <colorrole role="Text">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="255">
+                    <red>120</red>
+                    <green>120</green>
+                    <blue>120</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                 <colorrole role="PlaceholderText">
+                  <brush brushstyle="SolidPattern">
+                   <color alpha="128">
+                    <red>0</red>
+                    <green>0</green>
+                    <blue>0</blue>
+                   </color>
+                  </brush>
+                 </colorrole>
+                </disabled>
+               </palette>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
+            <item row="35" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_3">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>C_0212: Brak oceny wskaźnika - istniejąca ocena opisowa wskaźnika</string>
+              </property>
+             </widget>
+            </item>
+            <item row="46" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_compatibilyty">
+              <property name="text">
+               <string>C_0301: Zgodność baza:mapa</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0" colspan="2">
+             <widget class="QgsMapLayerComboBox" name="mMapLayerComboBoxAraesPolygon"/>
+            </item>
+            <item row="25" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_par_assasement">
+              <property name="text">
+               <string>C_0205: Brak ocen parametrów</string>
+              </property>
+             </widget>
+            </item>
+            <item row="34" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_par_assasement_ex_desc_assasement">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>C_0211: Brak oceny parametru - istniejąca ocena opisowa parametru</string>
+              </property>
+             </widget>
+            </item>
+            <item row="27" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_gen_assasement_desc">
+              <property name="text">
+               <string>C_0207: Brak oceny ogólnej (ocena opisowa)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="36" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_site_description">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0213: Brak opisu siedliska na stanowisku</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="label_3">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Warstwa zasięgu siedlisk:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_2">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Baza danych:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="37" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_natural_values">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0214: Brak wprowadzonych wartości przyrodniczych</string>
+              </property>
+             </widget>
+            </item>
+            <item row="21" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButtonNumerationValidatingDBase">
+              <property name="text">
+               <string>C_0201: Poprawność numeracji</string>
+              </property>
+             </widget>
+            </item>
+            <item row="26" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_indicators_assasement">
+              <property name="text">
+               <string>C_0206: Brak ocen wskaźników</string>
+              </property>
+             </widget>
+            </item>
+            <item row="42" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_9">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>C_0219: Brak wprowadzonych działań ochronnych</string>
+              </property>
+             </widget>
+            </item>
+            <item row="11" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_generate_point_layer">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="acceptDrops">
+               <bool>false</bool>
+              </property>
+              <property name="toolTipDuration">
+               <number>-1</number>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="autoFillBackground">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>T_0101: Warstwa punktowa na podstawie współrzędnych z bazy</string>
+              </property>
+             </widget>
+            </item>
+            <item row="20" column="0">
+             <widget class="QLabel" name="label_8">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Baza:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="38" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_missing_date_information">
+              <property name="text">
+               <string>C_0215: Brak infrormacji o dacie kontroli</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QPushButton" name="pushButton_select_dBase">
+              <property name="text">
+               <string>...</string>
+              </property>
+             </widget>
+            </item>
+            <item row="22" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_coordinates">
+              <property name="text">
+               <string>C_0203: Współrzędne</string>
+              </property>
+             </widget>
+            </item>
+            <item row="23" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_gen_assasement">
+              <property name="text">
+               <string>C_0204: Brak oceny ogólnej</string>
+              </property>
+             </widget>
+            </item>
+            <item row="8" column="0">
+             <widget class="QLabel" name="label_6">
+              <property name="text">
+               <string>Nr stanowiska (id płatu):</string>
+              </property>
+             </widget>
+            </item>
+            <item row="28" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_par_assasement_desc">
+              <property name="text">
+               <string>C_0208: Brak ocen parametrów (ocena opisowa)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="12" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_rewrite_area_to_dbase">
+              <property name="text">
+               <string>T_0102: Przepisanie powierzchni do bazy</string>
+              </property>
+             </widget>
+            </item>
+            <item row="8" column="1">
+             <widget class="QComboBox" name="comboBoxFieldsName"/>
+            </item>
+            <item row="14" column="0">
+             <widget class="QLabel" name="label_4">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Mapa:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="32" column="0" colspan="2">
+             <widget class="QPushButton" name="pushButton_control_missing_indicators_assasement_desc">
+              <property name="text">
+               <string>C_0209: Brak ocen wskaźników (ocena opisowa)</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QgsMapLayerComboBox</class>
+   <extends>QComboBox</extends>
+   <header>qgsmaplayercombobox.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

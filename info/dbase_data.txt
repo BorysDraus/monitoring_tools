@@ -1,0 +1,1 @@
+('C:/Users/borys.draus/Desktop/baza_monitoring_rowany.db', '*.db')
