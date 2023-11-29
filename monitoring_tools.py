@@ -21,7 +21,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils
+from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferenceSystem,QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar
@@ -511,9 +511,90 @@ class MonitoringTools:
         CustomMessageBox.showWithTimeout(5, "Zaktualizowano powierzchnię w bazie danych...", "", icon=QMessageBox.Information)
         self.appendDataToLabel("Zaktualizowano powierzchnię w bazie danych...", self.dockwidget.label_info)
 
+        self.dockwidget.pushButton_rewrite_area_to_dbase.setStyleSheet('QPushButton {background-color: #3cb371}')
+
         cursor.close()
         conn.close()
 
+
+    # T_0103
+    def add_coordinates_to_dbase(self):
+
+        # # Specify the EPSG code for the desired project coordinate system (e.g., WGS 84)
+        # new_project_crs_epsg = 4326
+        # # Define the new project coordinate reference system
+        # new_project_crs = QgsCoordinateReferenceSystem(new_project_crs_epsg, QgsCoordinateReferenceSystem.EpsgCrsId)
+        # # Set the new coordinate system for the project
+        # QgsProject.instance().setCrs(new_project_crs)
+
+
+        # Clear info labels
+        self.clear_info_labels()
+
+        # Dbase
+        d_base = self.get_dBase_directory()
+        if not d_base:
+            return False
+        # Connection settings
+        conn = sqlite3.connect(d_base)
+        cursor = conn.cursor()
+
+
+        # Layer
+        layer = self.getLayer()
+        if not layer:
+            return False
+        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+        field_area_id = layer.fields().indexFromName(field_name)
+        list_of_centroid_values = []
+
+        # Check if the layer is valid
+        if not layer.isValid():
+            print("Layer failed to load!")
+
+        # Set layer scr to 2180
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+
+
+        # Transform CRS from 2180 to 4326
+        transform = QgsCoordinateTransform(QgsCoordinateReferenceSystem("EPSG:2180"), QgsCoordinateReferenceSystem("EPSG:4326"), QgsProject.instance())
+
+
+        # Get the centroid coordinates of each feature
+        for feature in layer.getFeatures():
+            geometry = feature.geometry()
+            if layer.type() == QgsMapLayer.VectorLayer and (layer.wkbType() == QgsWkbTypes.Polygon or layer.wkbType() == QgsWkbTypes.MultiPolygon):
+
+                id = feature.id()
+                feat = layer.getFeature(id)
+                area_id = feat[field_area_id]
+
+                # Calculate centroid
+                centroid = geometry.centroid().asPoint()
+                # Transform the coordinates to WGS 84
+                centroid_wgs84 = transform.transform(centroid)
+
+                # Update the records
+                update_query = """UPDATE stanowisko_rok SET x = ?, y = ? 
+                WHERE stanowisko_nr = ? AND (x IS NULL OR x = '') AND (y IS NULL OR y = '')"""
+
+                # Execute the update query
+                cursor.execute(update_query, (centroid_wgs84.y(), centroid_wgs84.x(), area_id))
+
+                # Commit the changes
+                conn.commit()
+
+                print(
+                    f"Feature {feature.id()}: Centroid Coordinates (WGS 84) - Latitude: {centroid_wgs84.y()}, Longitude: {centroid_wgs84.x()}")
+            else:
+                continue
+
+        conn.close()
+        CustomMessageBox.showWithTimeout(5, "Zaktualizowano brakujce współrzędne w bazie danych.", "", icon=QMessageBox.Information)
+        self.appendDataToLabel("Zaktualizowano brakujce współrzędne w bazie danych.", self.dockwidget.label_info)
+        self.dockwidget.pushButton_add_coordinates_to_d_base.setStyleSheet('QPushButton {background-color: #3cb371}')
 
     # C_0101
     def numeration_validating_map(self):
@@ -546,8 +627,10 @@ class MonitoringTools:
         if len(invalid_numbers_layer) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
             self.appendDataToLabel("Błędnie zanumerowane powierzchnie w warstwie:", self.dockwidget.label_warning)
+
             for data_layer in invalid_numbers_layer:
                     self.appendDataToLabel(str(data_layer), self.dockwidget.label_warning)
+
             self.generate_csv_reports("Błędnie zanumerowane powierzchnie w warstwie", ["ID_STANOWISKA"],invalid_numbers_layer, "monitoring_gis_tools_raporty_kontroli", "0101_wykaz_blednie_zan_powierzchni_mapa.csv")
             self.dockwidget.pushButtonNumerationValidatingLayer.setStyleSheet('QPushButton {background-color: #ff0000}')
         else:
@@ -1003,13 +1086,13 @@ class MonitoringTools:
 
 
         for data_dbase in  ara_list_from_dBase:
-            if str(data_dbase) in str(area_list_from_layer):
+            if data_dbase in area_list_from_layer:
                 exist_in_both.append(data_dbase)
             else:
                 exist_id_dbase.append(data_dbase)
 
         for data_layer in area_list_from_layer:
-            if str(data_layer) not in str(ara_list_from_dBase):
+            if data_layer not in ara_list_from_dBase:
                 exist_is_layer.append(data_layer)
 
         self.appendDataToLabel("Raporty kontroli (*.csv): " + self.get_file_directory() + "/monitoring_gis_tools_raporty_kontroli", self.dockwidget.label_info)
@@ -1030,7 +1113,7 @@ class MonitoringTools:
         for data in exist_id_dbase:
             self.appendDataToLabel(str(data), self.dockwidget.label_warning)
             print(str(data))
-        self.generate_csv_reports("Powierzchnie istniejące w bazie danych a nie istniejące w warstwie", ["ID_STANOWISKA"], exist_id_dbase, "monitoring_gis_tools_raporty_kontroli","03012_wykaz_powierzchni_isnt_w_bazie.csv")
+        self.generate_csv_reports("Powierzchnie istniejące w bazie danych a nie istniejące w warstwie", ["ID_STANOWISKA"], exist_id_dbase, "monitoring_gis_tools_raporty_kontroli","03012_wykaz_powierzchni_isnt_wylacznie_w_bazie.csv")
 
 
         self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -1039,7 +1122,7 @@ class MonitoringTools:
         for data in exist_is_layer:
             self.appendDataToLabel(str(data), self.dockwidget.label_warning)
             print(str(data))
-        self.generate_csv_reports("Powierzchnie istniejące w warstwie a nie istniejące w bazie danych", ["ID_STANOWISKA"], exist_is_layer, "monitoring_gis_tools_raporty_kontroli","03013_wykaz_powierzchni_isnt_w_warstwie.csv")
+        self.generate_csv_reports("Powierzchnie istniejące w warstwie a nie istniejące w bazie danych", ["ID_STANOWISKA"], exist_is_layer, "monitoring_gis_tools_raporty_kontroli","03013_wykaz_powierzchni_isnt_wylacznie_w_warstwie.csv")
 
 
         if exist_is_layer or exist_id_dbase:
@@ -1193,6 +1276,8 @@ class MonitoringTools:
             # T_0101
             self.dockwidget.pushButton_rewrite_area_to_dbase.clicked.connect(self.rewrite_area_to_dbase)
 
+            # T_0103
+            self.dockwidget.pushButton_add_coordinates_to_d_base.clicked.connect(self.add_coordinates_to_dbase)
 
             # C_0102
             self.dockwidget.pushButton_control_duplicates.clicked.connect(self.control_duplicates)
