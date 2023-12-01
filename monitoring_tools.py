@@ -580,6 +580,7 @@ class MonitoringTools:
                 update_query = """UPDATE stanowisko_rok SET x = ?, y = ? 
                 WHERE stanowisko_nr = ? AND (x IS NULL OR x = '') AND (y IS NULL OR y = '')"""
 
+
                 # Execute the update query
                 cursor.execute(update_query, (centroid_wgs84.y(), centroid_wgs84.x(), area_id))
 
@@ -595,6 +596,7 @@ class MonitoringTools:
         CustomMessageBox.showWithTimeout(5, "Zaktualizowano brakujce współrzędne w bazie danych.", "", icon=QMessageBox.Information)
         self.appendDataToLabel("Zaktualizowano brakujce współrzędne w bazie danych.", self.dockwidget.label_info)
         self.dockwidget.pushButton_add_coordinates_to_d_base.setStyleSheet('QPushButton {background-color: #3cb371}')
+
 
     # C_0101
     def numeration_validating_map(self):
@@ -729,7 +731,7 @@ class MonitoringTools:
         conn = sqlite3.connect(d_base)
         cursor = conn.cursor()
 
-        cursor.execute("SELECT stanowisko_nr FROM stanowisko_rok")
+        cursor.execute("SELECT stanowisko_nr FROM stanowisko_rok;")
         rows = cursor.fetchall()
 
         ara_list_from_dBase = []
@@ -755,13 +757,13 @@ class MonitoringTools:
             self.dockwidget.pushButtonNumerationValidatingDBase.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0203
+    # C_0203 OK
     def control_coordinates(self):
 
         list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr "
                                          "FROM stanowisko "
                                          "INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr "
-                                         "WHERE x = '' or y = '' or x = 0 or y = 0")
+                                         "WHERE COALESCE(x, 0) = 0 OR COALESCE(y, 0) = 0;")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -776,12 +778,20 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_coordinates.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
+
+
+
+
     # C_0204
     def missing_gen_assasement(self):
 
         list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr "
-                                         "FROM stanowisko INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr "
-                                         "WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak')  AND (stanowisko_rok.ocena_cd is null or stanowisko_rok.ocena_cd = '')")
+                                         "FROM stanowisko "
+                                         "INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr "
+                                         "INNER join sl_siedlisko on stanowisko.siedlisko_cd = sl_siedlisko.siedlisko_cd "
+                                         "WHERE COALESCE(stanowisko.siedlisko_cd, '') NOT IN ('', 'brak') "
+                                         "AND coalesce(stanowisko_rok.ocena_cd,'') not in (select ocena_cd from sl_ocena)"
+                                         "AND sl_siedlisko.projekt_fl = 1")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -796,22 +806,31 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_gen_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0205
+    # C_0205 OK
     def missing_par_assasement(self):
 
-        list = self.getListOfAreaByQuery("SELECT subquery.stanowisko_nr, subquery.rok, subquery.SIEDL,subquery.PS,subquery.SF,subquery.PO "
-                                         "FROM (SELECT srp.stanowisko_nr, "
-                                         "srp.rok, "
-                                         "stanowisko.siedlisko_cd AS SIEDL, "
-                                         "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'PS' OR srp.ocena_cd = '') AS PS, "
-                                         "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'SF' OR srp.ocena_cd = '') AS SF, "
-                                         "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'PO' OR srp.ocena_cd = '') AS PO "
-                                         "FROM stanowisko_rok_parametr srp INNER JOIN stanowisko ON srp.stanowisko_nr = stanowisko.stanowisko_nr "
-                                         "WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak') "
-                                         "GROUP BY srp.stanowisko_nr, srp.rok, stanowisko.siedlisko_cd) AS subquery "
-                                         "WHERE COALESCE(PS, '') NOT IN ('FV', 'U1', 'U2', 'XX') OR "
-                                         "COALESCE(SF, '') NOT IN ('FV', 'U1', 'U2', 'XX') OR "
-                                         "COALESCE(PO, '') NOT IN ('FV', 'U1', 'U2', 'XX')")
+        # list = self.getListOfAreaByQuery("SELECT subquery.stanowisko_nr, subquery.rok, subquery.SIEDL,subquery.PS,subquery.SF,subquery.PO "
+        #                                  "FROM (SELECT srp.stanowisko_nr, "
+        #                                  "srp.rok, "
+        #                                  "stanowisko.siedlisko_cd AS SIEDL, "
+        #                                  "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'PS' OR srp.ocena_cd = '') AS PS, "
+        #                                  "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'SF' OR srp.ocena_cd = '') AS SF, "
+        #                                  "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'PO' OR srp.ocena_cd = '') AS PO "
+        #                                  "FROM stanowisko_rok_parametr srp INNER JOIN stanowisko ON srp.stanowisko_nr = stanowisko.stanowisko_nr "
+        #                                  "WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak') "
+        #                                  "GROUP BY srp.stanowisko_nr, srp.rok, stanowisko.siedlisko_cd) AS subquery "
+        #                                  "WHERE COALESCE(PS, '') NOT IN ('FV', 'U1', 'U2', 'XX') OR "
+        #                                  "COALESCE(SF, '') NOT IN ('FV', 'U1', 'U2', 'XX') OR "
+        #                                  "COALESCE(PO, '') NOT IN ('FV', 'U1', 'U2', 'XX')")
+
+        list = self.getListOfAreaByQuery("with t as "
+                                         "(select stanowisko_nr,parametr_cd from stanowisko s "
+                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
+                                         "join sl_parametr on true where projekt_fl) "
+                                         "select distinct t.stanowisko_nr "
+                                         "from t left join stanowisko_rok_parametr srp on srp.stanowisko_nr=t.stanowisko_nr and srp.parametr_cd=t.parametr_cd "
+                                         "where coalesce(srp.ocena_cd,'') not in (select ocena_cd from sl_ocena);")
+
 
 
         if len(list) > 0:
@@ -827,14 +846,17 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_par_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0206
+    # C_0206 OK
     def missing_indicators_assasement(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
-                                         "FROM stanowisko s "
-                                         "LEFT JOIN sl_siedlisko_wskaznik sw ON s.siedlisko_cd = sw.siedlisko_cd "
-                                         "LEFT JOIN stanowisko_rok_wskaznik srw ON sw.wskaznik_nr = srw.wskaznik_nr AND s.stanowisko_nr = srw.stanowisko_nr "
-                                         "WHERE s.siedlisko_cd NOT IN ('brak', '') AND sw.kard_fl != 1 AND srw.ocena_cd IS NULL;")
+        list = self.getListOfAreaByQuery("with t as "
+                                         "(select stanowisko_nr,ssw.wskaznik_nr "
+                                         "from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
+                                         "join sl_siedlisko_wskaznik ssw on ss.siedlisko_cd = ssw.siedlisko_cd "
+                                         "where projekt_fl and ssw.wskaznik_rodzaj_cd = 'O') "
+                                         "select distinct t.stanowisko_nr "
+                                         "from t left join stanowisko_rok_wskaznik srw on srw.stanowisko_nr=t.stanowisko_nr and srw.wskaznik_nr=t.wskaznik_nr "
+                                         "where coalesce(srw.ocena_cd,'') not in (select ocena_cd from sl_ocena);")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -849,12 +871,14 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_indicators_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0207
+    # C_0207 OK
     def missing_gen_assasement_desc(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr "
-                                         "FROM stanowisko INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr "
-                                         "WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak') AND (stanowisko_rok.komentarz_ocena_stanu_ochrony is null or stanowisko_rok.komentarz_ocena_stanu_ochrony = '')")
+        list = self.getListOfAreaByQuery("select distinct sr.stanowisko_nr "
+                                         "from stanowisko s "
+                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr "
+                                         "where projekt_fl "
+                                         "and coalesce(sr.komentarz_ocena_stanu_ochrony,'') not in ('',' ');")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -869,13 +893,14 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_gen_assasement_desc.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0208
+    # C_0208 OK
     def missing_par_assasement_desc(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr from stanowisko "
-                                         "INNER JOIN stanowisko_rok_parametr on stanowisko.stanowisko_nr = stanowisko_rok_parametr.stanowisko_nr "
-                                         "WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak') "
-                                         "AND (stanowisko_rok_parametr.komentarz IS NULL or stanowisko_rok_parametr.komentarz = '')")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
+                                         "from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
+                                         "JOIN stanowisko_rok_parametr srp on s.stanowisko_nr = srp.stanowisko_nr "
+                                         "WHERE ss.projekt_fl AND "
+                                         "coalesce(srp.komentarz,'') in ('',' ','⁶','*','/','6','I','7','&','l','y','o','8','w','9','-','.','v','i','(','k','. ','pl','90','11','|. ','   ','see','''','''''',' .',' ');")
 
 
         if len(list) > 0:
@@ -891,14 +916,10 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_par_assasement_desc.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0209
+    # C_0209 OK
     def missing_indicators_assasement_desc(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
-                                         "FROM stanowisko s "
-                                         "LEFT JOIN sl_siedlisko_wskaznik sw ON s.siedlisko_cd = sw.siedlisko_cd "
-                                         "LEFT JOIN stanowisko_rok_wskaznik srw ON sw.wskaznik_nr = srw.wskaznik_nr AND s.stanowisko_nr = srw.stanowisko_nr "
-                                         "WHERE s.siedlisko_cd NOT IN ('brak', '') AND sw.kard_fl != 1 AND (srw.wartosc IS NULL OR srw.wartosc = '');")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok_wskaznik srw on s.stanowisko_nr = srw.stanowisko_nr join sl_siedlisko_wskaznik ssw on s.siedlisko_cd=ssw.siedlisko_cd WHERE ss.projekt_fl and ssw.wskaznik_rodzaj_cd='O' AND coalesce(srw.wartosc,'') in ('',' ','''','''''','|','/','.','-',',','~','!','p','l','po','ww','''-','Bra','jw.','...',' ',' ');")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -913,10 +934,10 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_indicators_assasement_desc.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0210
+    # C_0210 OK, not in use
     def missing_gen_assasement_exist_desc_assasement(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr, stanowisko_rok.ocena_cd, stanowisko_rok.komentarz_ocena_stanu_ochrony FROM stanowisko INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak')   and (stanowisko_rok.ocena_cd is null or stanowisko_rok.ocena_cd = '') and (stanowisko_rok.komentarz_ocena_stanu_ochrony IS NOT NULL AND stanowisko_rok.komentarz_ocena_stanu_ochrony <> '')")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd left JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr WHERE ss.projekt_fl AND (coalesce(sr.ocena_cd,'') not in (select ocena_cd from sl_ocena) or coalesce(sr.komentarz_ocena_stanu_ochrony,'') in ('',' '));")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -931,10 +952,10 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_gen_assasement_exist_desc_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0213
+    # C_0213 OK
     def missing_site_description(self):
 
-        list = self.getListOfAreaByQuery("SELECT stanowisko.stanowisko_nr FROM stanowisko INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr WHERE stanowisko.siedlisko_cd NOT IN('', 'brak') and (stanowisko_rok.opis_siedliska is null or stanowisko_rok.opis_siedliska = '')")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr WHERE ss.projekt_fl AND length(coalesce(sr.opis_siedliska,''))<9")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -949,10 +970,13 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_site_description.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0214
+    # C_0214 OK
     def missing_natural_values(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr FROM stanowisko INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak')  and (stanowisko_rok.wartosci_przyrodnicze is null or stanowisko_rok.wartosci_przyrodnicze = '')")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s "
+                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
+                                         "JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
+                                         "WHERE ss.projekt_fl AND length(coalesce(sr.wartosci_przyrodnicze,''))<4 or sr.wartosci_przyrodnicze='''<.'")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -967,10 +991,10 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_missing_natural_values.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0215
+    # C_0215 OK
     def missing_date_information(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr FROM stanowisko INNER join stanowisko_rok_datakontroli on stanowisko.stanowisko_nr = stanowisko_rok_datakontroli.stanowisko_nr WHERE stanowisko_rok_datakontroli.data_kontroli is null or stanowisko_rok_datakontroli.data_kontroli = ''")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr FROM stanowisko s left join stanowisko_rok_datakontroli srd on s.stanowisko_nr = srd.stanowisko_nr WHERE coalesce(srd.data_kontroli,'')='';")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -985,10 +1009,12 @@ class MonitoringTools:
             self.dockwidget.pushButton_missing_date_information.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0216
+    # C_0216 OK
     def missing_availability_information(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr FROM stanowisko INNER join stanowisko_rok_datakontroli on stanowisko.stanowisko_nr = stanowisko_rok_datakontroli.stanowisko_nr  WHERE stanowisko_rok_datakontroli.dostepnosc_cd is null or stanowisko_rok_datakontroli.dostepnosc_cd = ''")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
+                                         "FROM stanowisko s join stanowisko_rok_datakontroli srd on s.stanowisko_nr = srd.stanowisko_nr "
+                                         "WHERE coalesce(cast(srd.dostepnosc_cd as text),'') in ('','0') or (cast(coalesce(dostepnosc_cd,'') as text) in ('niedostępna z przyczyn abiotycznych','niedostępna z przyczyn antropogenicznych','niedostępna z przyczyn biotycznych') and coalesce(opis,'') = '');")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -1003,9 +1029,13 @@ class MonitoringTools:
             self.dockwidget.pushButton_missing_availability_information.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0217
+    # C_0217 OK
     def missing_impacts(self):
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr, stanowisko_rok_oddzialywanie.oddzialywanie_cd FROM stanowisko  LEFT join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr  LEFT join stanowisko_rok_oddzialywanie on stanowisko_rok.stanowisko_nr = stanowisko_rok_oddzialywanie.stanowisko_nr and stanowisko_rok.rok = stanowisko_rok_oddzialywanie.rok WHERE (stanowisko_rok_oddzialywanie.oddzialywanie_cd IS NULL or stanowisko_rok_oddzialywanie.oddzialywanie_cd = '') AND (stanowisko.siedlisko_cd IS NOT NULL and stanowisko.siedlisko_cd NOT IN ('brak', ''))")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s "
+                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
+                                         "JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
+                                         "LEFT join stanowisko_rok_oddzialywanie sro on sr.stanowisko_nr = sro.stanowisko_nr and sr.rok = sro.rok "
+                                         "WHERE ss.projekt_fl AND coalesce(sro.oddzialywanie_cd,'') not in (select oddzialywanie_cd from sl_oddzialywanie);")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -1020,9 +1050,9 @@ class MonitoringTools:
             self.dockwidget.pushButton_missing_impacts.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
-    # C_0218
+    # C_0218 OK
     def missing_threats(self):
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr FROM stanowisko LEFT join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr LEFT join stanowisko_rok_zagrozenie on stanowisko_rok.stanowisko_nr = stanowisko_rok_zagrozenie.stanowisko_nr and stanowisko_rok.rok = stanowisko_rok_zagrozenie.rok WHERE (stanowisko_rok_zagrozenie.oddzialywanie_cd IS NULL or stanowisko_rok_zagrozenie.oddzialywanie_cd = '') AND (stanowisko.siedlisko_cd IS NOT NULL and stanowisko.siedlisko_cd NOT IN ('brak', ''))")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s JOIN sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr LEFT join stanowisko_rok_zagrozenie srz on sr.stanowisko_nr = srz.stanowisko_nr and sr.rok = srz.rok WHERE ss.projekt_fl AND coalesce(srz.oddzialywanie_cd,'') not in (select oddzialywanie_cd from sl_oddzialywanie);")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -1035,6 +1065,128 @@ class MonitoringTools:
             self.appendDataToLabel("Wszystkie powierzchnie posiadają informację o zagrożeniach", self.dockwidget.label_info)
             self.generate_csv_reports("Wszystkie powierzchnie posiadają informację o zagrożeniach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0218_wykaz_brak_informacji_o_zagrozeniach_OK.csv")
             self.dockwidget.pushButton_missing_threats.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+    # C_0219 OK
+    def missing_protectiv_actions(self):
+
+        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join stanowisko_rok_dzialanieochronne srd on sr.stanowisko_nr=srd.stanowisko_nr and sr.rok=srd.rok where ss.projekt_fl and (coalesce(srd.dzialanie_cd,'') not in (select dzialanie_cd from sl_dzialanie_ochronne) or coalesce(srd.dzialanie_typ_cd,'') not in (select dzialanie_typ_cd from sl_dzialanie_ochronne_typ) or (srd.powierzchnia=0 and not cala_pow_fl) or (length(coalesce(srd.opis,'')<4) and length(coalesce(srd.dodatkowe_uwarunkowania,'')<4)));")
+
+        if len(list) > 0:
+            self.appendDataToLabel("", self.dockwidget.label_warning)
+            self.appendDataToLabel("Brak informacji (niepełne informacje) o działaniach ochronnych:", self.dockwidget.label_warning)
+            for data_dbase in list:
+                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
+            self.generate_csv_reports("Brak informacji (niepełne informacje) o działaniach ochronnych:", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0219_wykaz_brak_informacji_o_dzialaniach_ochronnych.csv")
+            self.dockwidget.pushButton_missing_protectiv_actions.setStyleSheet('QPushButton {background-color: #ff0000}')
+        else:
+            self.appendDataToLabel("Wszystkie powierzchnie posiadają pełną informację o działaniach ochronnych", self.dockwidget.label_info)
+            self.generate_csv_reports("Wszystkie powierzchnie posiadają pełną informację o działaniach ochronnych", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0219_wykaz_brak_informacji_o_dzialaniach_ochronnych_OK.csv")
+            self.dockwidget.pushButton_missing_protectiv_actions.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+    # C_02220
+    def missing_elements_in_photo_doc(self):
+        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join stanowisko_rok_foto srf on sr.stanowisko_nr=srf.stanowisko_nr and sr.rok=srf.rok left join (select stanowisko_nr,rok,count(*) cnt from stanowisko_rok_foto group by 1,2) t on sr.stanowisko_nr=t.stanowisko_nr and sr.rok=t.rok where ss.projekt_fl and (srf.stanowisko_nr||'_'||srf.foto_nr||coalesce('_'||case when srf.sufix='' then null else srf.sufix end,'')||'.jpg' != srf.nazwa or not coalesce(cast(replace(srf.x,',','.') as float),0) between 49.002046518 and 54.836416667 or not coalesce(cast(replace(srf.y,',','.') as float),0) between 14.12288486 and 24.145783075 or not coalesce(cast(replace(srf.z,',','.') as float),-100) between -2 and 2499 or coalesce(cnt,0)<2);")
+
+        if len(list) > 0:
+            self.appendDataToLabel("", self.dockwidget.label_warning)
+            self.appendDataToLabel("Braki w dokumentacji fotograficznej:", self.dockwidget.label_warning)
+            for data_dbase in list:
+                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
+            self.generate_csv_reports("Braki w dokumentacji fotograficznej:", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0220_wykaz_braki_w_dokumentacji_fotograficznej.csv")
+            self.dockwidget.pushButton_missingelements_in_photo_documentation.setStyleSheet('QPushButton {background-color: #ff0000}')
+        else:
+            self.appendDataToLabel("Wszystkie powierzchnie posiadają pełną dokumentację fotograficzną", self.dockwidget.label_info)
+            self.generate_csv_reports("Wszystkie powierzchnie posiadają pełną dokumentację fotograficzną", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0220_wykaz_braki_w_dokumentacji_fotograficznej_OK.csv")
+            self.dockwidget.pushButton_missingelements_in_photo_documentation.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+
+    # C_0221
+    def compatibility_validation(self):
+        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr "
+                                         "from stanowisko s left join sl_siedlisko s1 on s.siedlisko_plan_cd=s1.siedlisko_cd left join sl_siedlisko s2 on s.siedlisko_lp_cd  =s2.siedlisko_cd left join sl_siedlisko s3 on s.siedlisko_cd     =s3.siedlisko_cd where not((s.siedlisko_plan_cd=s.siedlisko_cd and zgodnosc_cd=1) or (coalesce(s1.projekt_fl,0)=0 and coalesce(s2.projekt_fl,0)=0 and s3.projekt_fl=1 and zgodnosc_cd=2) or (s.siedlisko_plan_cd!=s.siedlisko_cd and s1.projekt_fl and s3.projekt_fl and zgodnosc_cd=3) or (s1.projekt_fl=1 and s3.projekt_fl=0 and s.zgodnosc_cd=4) or (s1.projekt_fl=1 and s.siedlisko_cd='brak' and zgodnosc_cd in (5,6,7)) or (s.siedlisko_lp_cd=s.siedlisko_cd and coalesce(s1.projekt_fl,0)=0 and s.zgodnosc_cd=8) or (s2.projekt_fl=1 and coalesce(s3.projekt_fl,0)=0 and s.zgodnosc_cd=9)) or coalesce(s.zgodnosc_cd,0) in (0,'')")
+
+        if len(list) > 0:
+            self.appendDataToLabel("", self.dockwidget.label_warning)
+            self.appendDataToLabel("Błędne oznaczenia (brak oznaczenia) zgodności z dokumentacją:", self.dockwidget.label_warning)
+            for data_dbase in list:
+                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
+            self.generate_csv_reports("Błędne oznaczenia (brak oznaczenia) zgodności z dokumentacją:", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0221_wykaz_stanowisk_z_bledna_ocena_zgodnosci.csv")
+            self.dockwidget.pushButton_compatibility_validation.setStyleSheet('QPushButton {background-color: #ff0000}')
+        else:
+            self.appendDataToLabel("Ocena zgodności z dokumentacją (w zakresie kontroli) nie wykazała błędów", self.dockwidget.label_info)
+            self.generate_csv_reports("Ocena zgodności z dokumentacją (w zakresie kontroli) nie wykazała błędów", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0221_wykaz_stanowisk_z_bledna_ocena_zgodnosci_OK.csv")
+            self.dockwidget.pushButton_compatibility_validation.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+
+    # C_0222 OK
+    def missing_resigantion_exist_resignation_cause(self):
+
+        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr "
+                                         "from stanowisko s "
+                                         "join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr "
+                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
+                                         "where ss.projekt_fl and not rezygnacja_fl and coalesce(uzasadnienie_rezygnacji,'') != ''")
+
+        if len(list) > 0:
+            self.appendDataToLabel("", self.dockwidget.label_warning)
+            self.appendDataToLabel("Stanowiska z uzasadnieniem rezygnacji (odstąpienia), bez zaznaczenia odstąpienia:", self.dockwidget.label_warning)
+            for data_dbase in list:
+                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
+            self.generate_csv_reports("Stanowiska z uzasadnieniem rezygnacji (odstąpienia), bez zaznaczenia odstąpienia", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0222_wykaz_stanowisk_z_uzasadnieniem_rezygnacji_bez_zaznaczenia_rezygnacji.csv")
+            self.dockwidget.pushButton_missing_resigantion_exist_resignation_cause.setStyleSheet('QPushButton {background-color: #ff0000}')
+        else:
+            self.appendDataToLabel("Wszystkie stanowiska z opisem rezygnacji posiadają oznaczenie rezygnacji", self.dockwidget.label_info)
+            self.generate_csv_reports("Wszystkie stanowiska z opisem rezygnacji posiadają oznaczenie rezygnacji", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0222_wykaz_stanowisk_z_uzasadnieniem_rezygnacji_bez_zaznaczenia_rezygnacji_OK.csv")
+            self.dockwidget.pushButton_missing_resigantion_exist_resignation_cause.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+
+    # C_0223 OK
+    def missing_resigantion_cause(self):
+        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd where ss.projekt_fl and rezygnacja_fl and length(coalesce(uzasadnienie_rezygnacji,''))<4;")
+
+        if len(list) > 0:
+            self.appendDataToLabel("", self.dockwidget.label_warning)
+            self.appendDataToLabel("Stanowiska bez uzasadnienia rezygnacji:", self.dockwidget.label_warning)
+            for data_dbase in list:
+                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
+            self.generate_csv_reports("Stanowiska bez uzasadnienia rezygnacji", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0223_wykaz_stanowiska_bez_uzasadnienia_rezygnacji.csv")
+            self.dockwidget.pushButton_missing_resigantion_cause.setStyleSheet('QPushButton {background-color: #ff0000}')
+        else:
+            self.appendDataToLabel("Wszystkie stanowiska, w których odstąpiono od monitoringu posiadają uzasadnie rezygnacji (odstąpnia)", self.dockwidget.label_info)
+            self.generate_csv_reports("Wszystkie stanowiska, w których odstąpiono od monitoringu posiadają uzasadnie rezygnacji (odstąpnia)", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0223_wykaz_stanowiska_bez_uzasadnienia_rezygnacji_OK.csv")
+            self.dockwidget.pushButton_missing_resigantion_cause.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+    # C_0224
+    def control_coordinates_extend_pl(self):
+
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
+                                         "FROM stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
+                                         "WHERE projekt_fl "
+                                         "and (not coalesce(cast(replace(x,',','.') as float),0) between 49.002046518 "
+                                         "and 54.836416667 or not coalesce(cast(replace(y,',','.') as float),0) between 14.12288486 "
+                                         "and 24.145783075 or not coalesce(cast(replace(z,',','.') as float),-100) between -2 and 2499 );")
+
+        if len(list) > 0:
+            self.appendDataToLabel("", self.dockwidget.label_warning)
+            self.appendDataToLabel("Współrzędne poza teoretycznym zasięgiem projektu (zasięg PL, -3<h<2500):", self.dockwidget.label_warning)
+            for data_dbase in list:
+                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
+            self.generate_csv_reports("Współrzędne poza teoretycznym zasięgiem projektu (zasięg PL, -3<h<2500):", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0224_wykaz_wspolrzedne_poza_PL.csv")
+            self.dockwidget.pushButton_invalid_coordinates.setStyleSheet('QPushButton {background-color: #ff0000}')
+        else:
+            self.appendDataToLabel("Prawdopodobnie wszystkie współrzędne znajdują się w zasięgu opracowania", self.dockwidget.label_info)
+            self.generate_csv_reports("Prawdopodobnie wszystkie współrzędne znajdują się w zasięgu opracowania", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0224_wykaz_wspolrzedne_poza_PL_OK.csv")
+            self.dockwidget.pushButton_invalid_coordinates.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+
+
 
 
     # C_0301  C_03011 C_03012 C_03013
@@ -1055,7 +1207,7 @@ class MonitoringTools:
         conn = sqlite3.connect(d_base)
         cursor = conn.cursor()
 
-        cursor.execute("SELECT stanowisko_nr FROM stanowisko_rok")
+        cursor.execute("SELECT stanowisko_nr FROM stanowisko_rok;")
         rows = cursor.fetchall()
 
         layer = self.dockwidget.mMapLayerComboBoxAraesPolygon.currentLayer()
@@ -1303,6 +1455,23 @@ class MonitoringTools:
             self.dockwidget.pushButton_missing_impacts.clicked.connect(self.missing_impacts)
             # 0218
             self.dockwidget.pushButton_missing_threats.clicked.connect(self.missing_threats)
+            # 0219
+            self.dockwidget.pushButton_missing_protectiv_actions.clicked.connect(self.missing_protectiv_actions)
+            # 0220
+            self.dockwidget.pushButton_missingelements_in_photo_documentation.clicked.connect(self.missing_elements_in_photo_doc)
+            # 0221
+            self.dockwidget.pushButton_compatibility_validation.clicked.connect(self.compatibility_validation)
+
+            # C_0222
+            self.dockwidget.pushButton_missing_resigantion_exist_resignation_cause.clicked.connect(self.missing_resigantion_exist_resignation_cause)
+
+            # C_0223
+            self.dockwidget.pushButton_missing_resigantion_cause.clicked.connect(self.missing_resigantion_cause)
+
+            # C_0224
+            self.dockwidget.pushButton_invalid_coordinates.clicked.connect(self.control_coordinates_extend_pl)
+
+
 
             self.dockwidget.mMapLayerComboBoxAraesPolygon.activated.connect(lambda: self.comboBoxAraesPolygonSelectAction())
             self.dockwidget.mMapLayerComboBoxAraesPolygon.layerChanged.connect(lambda: self.comboBoxAraesPolygonSelectAction())
