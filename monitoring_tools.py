@@ -21,12 +21,16 @@
  *                                                                         *
  ***************************************************************************/
 """
+
+
+from qgis import processing, PyQt
+from qgis.core import QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
 from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferenceSystem,QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar, QProgressDialog
 from PyQt5.QtWidgets import QMessageBox, QWidget
-from PyQt5.QtCore import QVariant, Qt
+from PyQt5.QtCore import QVariant, Qt,QFileInfo
 from .TimerMessageBox import CustomMessageBox
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -34,6 +38,8 @@ from .resources import *
 from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsVectorDataProvider, QgsField, QgsRectangle, \
     QgsMapLayerProxyModel, QgsProcessing
 
+
+from osgeo import gdal, ogr
 
 
 from .atribute_table_manager import AtributeTableManager
@@ -45,6 +51,11 @@ import re
 import os
 import csv
 from datetime import datetime
+
+from qgis.core import QgsRasterLayer, QgsRasterBandStats
+from qgis.analysis import QgsRasterCalculator, QgsRasterCalculatorEntry
+
+
 
 class MonitoringTools:
     """QGIS Plugin Implementation."""
@@ -470,15 +481,25 @@ class MonitoringTools:
         layer_fields = layer.fields()
         field_area = layer_fields.indexFromName("AREA_HA")
         features_of_layer = layer.getFeatures()
+        total_features = layer.featureCount()
         area_list_from_layer = []
         list_of_subarea = []
         field_name = self.dockwidget.comboBoxFieldsName.currentText()
         field_area_id = layer.fields().indexFromName(field_name)
 
 
+          # Create a progress dialog
+        progress_dialog = QProgressDialog("Processing...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(2)  # Make the dialog modal
+        progress_dialog.show()
+
+
+
         for f in features_of_layer:
             id = f.id()
             feat = layer.getFeature(id)
+
+            progress_dialog.setValue(id)
 
             # SUBAREA
             geom = f.geometry()
@@ -490,6 +511,7 @@ class MonitoringTools:
             list_of_subarea.append(area)
 
         layer.commitChanges()
+
 
         # Info
         CustomMessageBox.showWithTimeout(5, "Obliczono powierzchnię poligonów warstwy wektorowej", "", icon=QMessageBox.Information)
@@ -515,6 +537,9 @@ class MonitoringTools:
 
         cursor.close()
         conn.close()
+
+        progress_dialog.setValue(total_features)
+        progress_dialog.close()
 
 
     # T_0103
@@ -578,11 +603,14 @@ class MonitoringTools:
 
                 # Update the records
                 update_query = """UPDATE stanowisko_rok SET x = ?, y = ? 
-                WHERE stanowisko_nr = ? AND (x IS NULL OR x = '') AND (y IS NULL OR y = '')"""
+                WHERE stanowisko_nr = ? AND coalesce(cast(x as int), 0)=0 or coalesce(cast(y as int), 0)=0"""
 
 
                 # Execute the update query
                 cursor.execute(update_query, (centroid_wgs84.y(), centroid_wgs84.x(), area_id))
+
+                # Execute the update query
+                # cursor.execute(update_query)
 
                 # Commit the changes
                 conn.commit()
@@ -596,6 +624,757 @@ class MonitoringTools:
         CustomMessageBox.showWithTimeout(5, "Zaktualizowano brakujce współrzędne w bazie danych.", "", icon=QMessageBox.Information)
         self.appendDataToLabel("Zaktualizowano brakujce współrzędne w bazie danych.", self.dockwidget.label_info)
         self.dockwidget.pushButton_add_coordinates_to_d_base.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+    # T_0104
+    def corect_compatibility(self):
+
+        # Clear info labels
+        self.clear_info_labels()
+
+        # Dbase
+        d_base = self.get_dBase_directory()
+        if not d_base:
+            return False
+        # Connection settings
+        conn = sqlite3.connect(d_base)
+        cursor = conn.cursor()
+
+
+        try:
+
+            # Update 01
+            update_query = "update stanowisko set zgodnosc_cd=1 where siedlisko_cd in (select siedlisko_cd from sl_siedlisko where projekt_fl) and coalesce(zgodnosc_cd,0) in (0,'') and siedlisko_plan_cd=siedlisko_cd;"
+            cursor.execute(update_query)
+            conn.commit()
+
+            # Update 08
+            update_query = "update stanowisko set zgodnosc_cd=8 where siedlisko_cd in (select siedlisko_cd from sl_siedlisko where projekt_fl) and coalesce(zgodnosc_cd,0) in (0,'') and siedlisko_lp_cd=siedlisko_cd and siedlisko_plan_cd in (select siedlisko_cd from sl_siedlisko where not projekt_fl);"
+            cursor.execute(update_query)
+            conn.commit()
+
+            # Update 09
+            update_query = "update stanowisko set zgodnosc_cd=9 where coalesce(zgodnosc_cd,0) in (0,'') and siedlisko_plan_cd in (select siedlisko_cd from sl_siedlisko where not projekt_fl) and siedlisko_lp_cd in (select siedlisko_cd from sl_siedlisko where projekt_fl) and siedlisko_cd='brak'"
+            cursor.execute(update_query)
+            conn.commit()
+
+        except Exception as e:
+            CustomMessageBox.showWithTimeout(5, "Proces zakończył się niepowodzeniem!", "", icon=QMessageBox.Warning)
+            self.appendDataToLabel("Proces zakończył się niepowodzeniem!", self.dockwidget.label_warning)
+            self.dockwidget.pushButton_correct_compatibility.setStyleSheet('QPushButton {background-color: #ff0000}')
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
+        CustomMessageBox.showWithTimeout(5, "Proces zakończył się powodzeniem!", "", icon=QMessageBox.Information)
+        self.appendDataToLabel("Proces zakończył się powodzeniem!", self.dockwidget.label_info)
+        self.dockwidget.pushButton_correct_compatibility.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+
+
+    # T_0105
+    # !!!Remember to change year, now: 2023
+    def asign_n2000_to_dbase(self):
+
+
+
+        self.removeMapLayerByName('N2000_PL')
+
+        # Input data - user layer
+        layer = self.getLayer()
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        if not layer.isValid():
+            print(f"Layer '{layer}' is not valid.")
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+        AtributeTableManager.removeColumnToLayerByLayerInstance(self, layer, "kod_n2000")
+        # 01 REPAIR GEOMETRY
+        result = processing.run("native:fixgeometries", {'INPUT': layer, 'OUTPUT': 'memory:'})
+        repair_geom_user_layer = result['OUTPUT']
+
+
+        # Input data N2000 layer
+        dirnameOfCatalog = self.resolveDir('soo_layer')
+        geopackage_path =  dirnameOfCatalog + "/N2000_PL.gpkg"
+        natura2000_layer = self.iface.addVectorLayer(geopackage_path, "N2000_PL", "ogr")
+        if not natura2000_layer:
+            print("Layer failed to load!")
+            return False
+
+
+        # Create common part of layers
+        result = processing.run("native:intersection", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': natura2000_layer,
+            'INPUT_FIELDS': [], 'OVERLAY_FIELDS': [], 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        common_part_layer = result['OUTPUT']
+        common_part_layer.setName('w_N2000')
+
+
+        # Create external part
+        result = processing.run("native:difference", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': natura2000_layer,
+            'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        difference_layer = result['OUTPUT']
+        difference_layer.setName('poza_N2000')
+
+        # 03 MERGE
+        result = processing.run("native:mergevectorlayers", {'LAYERS': [common_part_layer, difference_layer], 'CRS': None, 'OUTPUT': 'memory:'})
+        merge_layer = result['OUTPUT']
+        merge_layer.setName('w_poza_N2000')
+        # QgsProject.instance().addMapLayer(merge_layer)
+
+
+        # 04 AGREGATE
+        # result = processing.run("native:dissolve", {
+        #     'INPUT': merge_layer,
+        #     'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        # dissolve_layer = result['OUTPUT']
+        # dissolve_layer.setName('bledy_zasiegu')
+
+
+        # Disolve by ID_STAN and N2000 layer
+        # result = processing.run("native:dissolve", {
+        #     'INPUT': common_part_layer,
+        #     'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        # dissolve_layer = result['OUTPUT']
+        # dissolve_layer.setName('stanowisko_n2000')
+
+        result = processing.run("native:dissolve", {
+            'INPUT': merge_layer,
+            'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        dissolve_layer = result['OUTPUT']
+        dissolve_layer.setName('stanowisko_n2000')
+
+
+
+        # Duplicates controll with information
+        # Get the index of the column
+        column_index = dissolve_layer.fields().indexFromName(field_name)
+
+        # Create a dictionary to store the count of each attribute value
+        attribute_count = {}
+
+        # Iterate through features in the layer
+        for feature in dissolve_layer.getFeatures():
+            # Get the attribute value for the specified column
+            attribute_value = feature[column_index]
+
+            # Update the count in the dictionary
+            if attribute_value in attribute_count:
+                attribute_count[attribute_value] += 1
+            else:
+                attribute_count[attribute_value] = 1
+
+        # Identify duplicate attribute values
+        duplicate_values = [value for value, count in attribute_count.items() if count > 1]
+
+        if len(duplicate_values) > 0:
+            CustomMessageBox.showInfoCustomMessageBox(
+                "W warstwie znajdują się płaty występujące jednocześnie w kilku obszarach Natura 2000!"
+                "\n\n"
+                "Wykonaj kontrolę C_0104 i popraw zasięg płatów!"
+                "\n\nDo stanowiska znajdującego się w obrębie kilku obszarów N2000 zostanie przypisany obszar N2000 o największej powierzchni."
+                "\n\nLista powierzchni występujących w kilku płatach znajduje się w raporcie kontroli.",
+                "Przypisanie obszarów N2000 do bazy.",
+                icon=QMessageBox.Information)
+            self.generate_csv_reports('Stanowiska występujące jednocześnie w kilku obszarach N2000:', ["ID_STANOWISKA"],duplicate_values, "monitoring_gis_tools_raporty_kontroli", "T_0105_stanowiska_w_kilku_ob_N2000.csv")
+
+
+
+        # Calculate area
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "AREA_HA", QVariant.Double)
+        layer_provider = dissolve_layer.dataProvider()
+        # layer_fields = dissolve_layer.fields()
+        column_area = dissolve_layer.fields().indexFromName("AREA_HA")
+        column_n2000 = dissolve_layer.fields().indexFromName("kod_n2000")
+        features_of_layer = dissolve_layer.getFeatures()
+
+
+        for f in features_of_layer:
+            id = f.id()
+            # SUBAREA
+            geom = f.geometry()
+            area = geom.area() / 10000
+            area = round(area, 2)
+            attr_value_subarea = {column_area: area}
+            layer_provider.changeAttributeValues({id: attr_value_subarea})
+
+        dissolve_layer.commitChanges()
+
+        # Remove smaller part
+        max_area_dict = {}
+
+
+        # Iterate over features and update the max 'AREA' for each 'ID'
+        for feature in dissolve_layer.getFeatures():
+            id_value = feature.attributes()[column_index]
+            area_value = feature.attributes()[column_area]
+
+            if id_value not in max_area_dict or area_value > max_area_dict[id_value]:
+                max_area_dict[id_value] = area_value
+
+        # Create a list of feature IDs to keep
+        features_to_keep = []
+        for feature in dissolve_layer.getFeatures():
+            id_value = feature.attributes()[column_index]
+            area_value = feature.attributes()[column_area]
+
+            if area_value == max_area_dict[id_value]:
+                features_to_keep.append(feature.id())
+
+        # Set the selected features in the original layer
+        dissolve_layer.selectByIds(features_to_keep)
+        # Reverse the current selection
+        dissolve_layer.invertSelection()
+
+        # Delete the selected features
+        dissolve_layer.startEditing()
+        dissolve_layer.deleteSelectedFeatures()
+        dissolve_layer.commitChanges()
+
+        # Remove data from dBase
+        try:
+            # Dbase
+            d_base = self.get_dBase_directory()
+            if not d_base:
+                CustomMessageBox.showWithTimeout(5, "Brak dostępu do bazy danych bazie danych.", "", icon=QMessageBox.Information)
+                self.dockwidget.pushButton_asign_n2000_to_dbase.setStyleSheet('QPushButton {background-color: #ff0000}')
+                return False
+
+            conn = sqlite3.connect(d_base)
+            cursor = conn.cursor()
+
+            sql_query = """DELETE FROM stanowisko_rok_forma_op
+                           WHERE forma_ochrony_przyrody_cd LIKE 'n2kh%'
+                              OR forma_ochrony_przyrody_cd LIKE 'n2kc%'
+                              OR forma_ochrony_przyrody_cd LIKE 'PLH%'
+                              OR forma_ochrony_przyrody_cd LIKE 'PLC%'
+                              OR forma_ochrony_przyrody_cd LIKE 'None%'
+                              OR forma_ochrony_przyrody_cd IS NULL
+                              OR forma_ochrony_przyrody_cd = "";"""
+            cursor.execute(sql_query)
+            deleted_rows = cursor.rowcount
+            conn.commit()
+            CustomMessageBox.showWithTimeout(5, f"Usunięto {deleted_rows} przypisań do obszarów siedliskoskowych (PLH, PLC) z bazy danych.", "",icon=QMessageBox.Information)
+
+        except sqlite3.Error as e:
+            print(f"Error removing data from database: {e}")
+            conn.rollback()
+            self.dockwidget.pushButton_asign_n2000_to_dbase.setStyleSheet('QPushButton {background-color: #ff0000}')
+            return False
+        finally:
+            conn.close()
+
+        try:
+            # Dbase
+            d_base = self.get_dBase_directory()
+            if not d_base:
+                CustomMessageBox.showWithTimeout(5, "Brak dostępu do bazy danych bazie danych.", "", icon=QMessageBox.Information)
+                return False
+
+            conn = sqlite3.connect(d_base)
+            cursor = conn.cursor()
+
+            total_inserted_rows = 0
+
+            for feature in dissolve_layer.getFeatures():
+                id = feature.id()
+                feat = dissolve_layer.getFeature(id)
+                area_id = feat[column_index]
+                n2000 = feat[column_n2000]
+
+                stanowisko_value = area_id
+                rok_value = 2023
+
+                forma_ochrony_przyrody_cd_value = n2000
+
+
+                if n2000 is not None and n2000.startswith("PLH"):
+                    forma_ochrony_przyrody_cd_value = 'n2kh_' +  n2000
+                elif n2000 is not None and n2000.startswith("PLC"):
+                    forma_ochrony_przyrody_cd_value = 'n2kc_' +  n2000
+
+                # Define the SQL query to insert a new row
+                if n2000 is not None:
+                    sql_query = f"""INSERT INTO stanowisko_rok_forma_op (stanowisko_nr, rok, forma_ochrony_przyrody_cd) VALUES ('{stanowisko_value}', {rok_value}, '{forma_ochrony_przyrody_cd_value}');"""
+                    cursor.execute(sql_query)
+                    total_inserted_rows += cursor.rowcount
+
+            conn.commit()
+
+        except sqlite3.Error as e:
+            print(f"Error adding data to database: {e}")
+            conn.rollback()
+            self.dockwidget.pushButton_asign_n2000_to_dbase.setStyleSheet('QPushButton {background-color: #ff0000}')
+            return False
+
+        finally:
+            conn.close()
+            CustomMessageBox.showWithTimeout(5, f"Dodano {total_inserted_rows} przypisań do obszarów siedliskoskowych (PLH, PLC) z warstwy do bazy danych.", "",icon=QMessageBox.Information)
+
+        # Join layers and rewrite data between columns
+        CustomMessageBox.showWithTimeout(5, "Przepisywanie kodu obszaru do warstwy siedlisk (kolumna 'kod_n2000')...", "",icon=QMessageBox.Information)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "kod_n2000", QVariant.String)
+        AtributeTableManager.rewriteDataBetweenLayers(self, dissolve_layer, layer,  "kod_n2000", field_name, field_name)
+
+
+        CustomMessageBox.showWithTimeout(5, "Zaktualizowano kody obszarów N2000 w bazie danych.", "", icon=QMessageBox.Information)
+        self.dockwidget.pushButton_asign_n2000_to_dbase.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+        # Add layers to project
+        # QgsProject.instance().addMapLayer(common_part_layer)
+        # QgsProject.instance().addMapLayer(dissolve_layer)
+
+
+    # T0106
+    def repair_geometry_cet_crs(self):
+
+        layer = self.getLayer()
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+
+        result = processing.run("native:fixgeometries", {'INPUT': layer, 'OUTPUT': 'memory:'})
+        repair_geom_user_layer = result['OUTPUT']
+
+        if repair_geom_user_layer:
+
+            layer.startEditing()
+
+            layer.deleteFeatures([f.id() for f in layer.getFeatures()])
+
+            for feature in repair_geom_user_layer.getFeatures():
+                layer.addFeature(feature)
+
+            layer.commitChanges()
+
+            print("Geometry repaired in the source layer successfully")
+
+            layer.reload()
+        else:
+            print("Error fixing geometries")
+
+    # T_0107
+    def round_geometry(self):
+
+        layer = self.getLayer()
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+
+        result = processing.run("native:snappointstogrid",{'INPUT': layer, 'HSPACING': 0.01, 'VSPACING': 0.01, 'ZSPACING': 0, 'MSPACING': 0,'OUTPUT': 'memory:'})
+        repair_geom_user_layer = result['OUTPUT']
+
+        if repair_geom_user_layer:
+            layer.startEditing()
+
+            layer.deleteFeatures([f.id() for f in layer.getFeatures()])
+
+            for feature in repair_geom_user_layer.getFeatures():
+                layer.addFeature(feature)
+
+            layer.commitChanges()
+
+            print("Geometry repaired in the source layer successfully")
+            layer.reload()
+        else:
+            print("Error fixing geometries")
+
+    # T_0108
+    def prepare_structure(self):
+
+        layer = self.getLayer()
+        columnns_to_leave = ["NR_PLATU", "AREA_HA", "kod_n2000", "rez_przyr"]
+        column_name = self.dockwidget.comboBoxFieldsName.currentText()
+        column_index = layer.fields().indexFromName(column_name)
+
+        AtributeTableManager.removeEachColumnExeptDeclaredByLayerInstance(self, layer, columnns_to_leave)
+
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "SIEDL", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "SIEDL_PLAN", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "SIEDL_LP", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ZGODN_KOD", QVariant.Int)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ZGODN_OPIS", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ROK", QVariant.Int)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "REZYGNACJA", QVariant.Int)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "UZ_REYGN", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "WART_PRZYR", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "OPIS_SIEDL", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ZARZ_TEREN", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "DATA_OCENY", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "PARAM_PS", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "PARAM_SSF", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "PARAM_PO", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "OCENA", QVariant.String)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "OCENA_OPIS", QVariant.String)
+
+        column_year = layer.fields().indexFromName("AREA_HA")
+
+        # Dbase address
+        d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
+        if not (str(d_base)):
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
+            return False
+
+        # Declare connections
+        conn = sqlite3.connect(d_base)
+        cursor = conn.cursor()
+
+        cursor.execute(" SELECT s.stanowisko_nr, s.siedlisko_cd, s.siedlisko_plan_cd, s.siedlisko_lp_cd, s.zgodnosc_cd, sz.zgodnosc_nm, sr.rok, sr.rezygnacja_fl, sr.uzasadnienie_rezygnacji, sr.wartosci_przyrodnicze, sr.opis_siedliska, sr.zarzadzajacy_terenem, sr.data_oceny, MAX(CASE WHEN srp.parametr_cd = 'PS' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS PS, MAX(CASE WHEN srp.parametr_cd = 'SF' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS SF, MAX(CASE WHEN srp.parametr_cd = 'PO' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS PO, sr.ocena_cd, sr.komentarz_ocena_stanu_ochrony FROM stanowisko s LEFT JOIN stanowisko_rok sr ON sr.stanowisko_nr = s.stanowisko_nr LEFT JOIN stanowisko_rok_parametr srp ON sr.stanowisko_nr = srp.stanowisko_nr AND sr.rok = srp.rok LEFT JOIN sl_zgodnosc sz ON s.zgodnosc_cd = sz.zgodnosc_cd GROUP BY sr.stanowisko_nr;")
+        rows = cursor.fetchall()
+
+        list = []
+
+        for row in rows:
+            list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15], row[16], row[17]))
+
+
+        total_features = layer.featureCount()
+
+        # Create a progress dialog
+        progress_dialog = QProgressDialog("Processing...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(2)  # Make the dialog modal
+        progress_dialog.show()
+
+
+        layer.startEditing()
+        layer_provider = layer.dataProvider()
+        fields = layer.fields()
+
+        for f in layer.getFeatures():
+            id = f.id()
+            feat = layer.getFeature(id)
+            attribute_value = feat[column_index]
+
+            progress_dialog.setValue(id)
+
+            for data in list:
+                if data[0] == attribute_value:
+
+                    if(data[1]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL"): data[1]}})
+                    if (data[2]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL_PLAN"): data[2]}})
+                    if (data[3]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL_LP"): data[3]}})
+                    if (data[4]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ZGODN_KOD"): data[4]}})
+                    if(data[5]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ZGODN_OPIS"): data[5]}})
+                    if (data[6]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ROK") : data[6]}})
+                    if (data[7]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("REZYGNACJA") : data[7]}})
+                    if (data[8]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("UZ_REYGN"): data[8]}})
+                    if (data[9]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("WART_PRZYR"): data[9]}})
+                    if (data[10]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("OPIS_SIEDL"): data[10]}})
+                    if (data[11]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ZARZ_TEREN"): data[11]}})
+                    if (data[12]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("DATA_OCENY"): data[12]}})
+                    if (data[13]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_PS"): data[13]}})
+                    if (data[14]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_SSF"): data[14]}})
+                    if (data[15]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_PO"): data[15]}})
+                    if (data[16]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("OCENA"): data[16]}})
+                    if (data[17]):
+                        layer_provider.changeAttributeValues({id: {fields.indexFromName("OCENA_OPIS"): data[17]}})
+
+
+        layer.commitChanges()
+
+
+        progress_dialog.setValue(total_features)
+        progress_dialog.close()
+        self.dockwidget.pushButton_prepare_structure.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+
+
+    # T_0109
+    def asign_nature_reserve_to_dbase(self):
+
+
+        self.removeMapLayerByName('rezerwaty_PL')
+
+        # Input data - user layer
+        layer = self.getLayer()
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+
+        if not layer.isValid():
+            print(f"Layer '{layer}' is not valid.")
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+
+        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+        AtributeTableManager.removeColumnToLayerByLayerInstance(self, layer, "rez_przyr")
+
+        # 01 REPAIR GEOMETRY
+        result = processing.run("native:fixgeometries", {'INPUT': layer, 'OUTPUT': 'memory:'})
+        repair_geom_user_layer = result['OUTPUT']
+
+
+        # Input data N2000 layer
+        dirnameOfCatalog = self.resolveDir('rez_layer')
+        geopackage_path =  dirnameOfCatalog + "/rezerwaty_PL.gpkg"
+        nature_reserve_layer = self.iface.addVectorLayer(geopackage_path, "rezerwaty_PL", "ogr")
+        nature_reserve_layer.setCrs(QgsCoordinateReferenceSystem(crs))
+
+        if not nature_reserve_layer:
+            print("Layer failed to load!")
+            return False
+
+
+        # Create common part of layers
+        result = processing.run("native:intersection", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': nature_reserve_layer,
+            'INPUT_FIELDS': [], 'OVERLAY_FIELDS': [], 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        common_part_layer = result['OUTPUT']
+        common_part_layer.setName('w_rezerwacie')
+
+
+        # Create external part
+        result = processing.run("native:difference", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': nature_reserve_layer,
+            'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        difference_layer = result['OUTPUT']
+        difference_layer.setName('poza_rezerwatem')
+
+        # 03 MERGE
+        result = processing.run("native:mergevectorlayers", {'LAYERS': [common_part_layer, difference_layer], 'CRS': None, 'OUTPUT': 'memory:'})
+        merge_layer = result['OUTPUT']
+        merge_layer.setName('w_poza_rezerwatem')
+        # QgsProject.instance().addMapLayer(merge_layer)
+
+
+        # 04 AGREGATE
+        # result = processing.run("native:dissolve", {
+        #     'INPUT': merge_layer,
+        #     'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        # dissolve_layer = result['OUTPUT']
+        # dissolve_layer.setName('bledy_zasiegu')
+
+
+        # Disolve by ID_STAN and N2000 layer
+        # result = processing.run("native:dissolve", {
+        #     'INPUT': common_part_layer,
+        #     'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        # dissolve_layer = result['OUTPUT']
+        # dissolve_layer.setName('stanowisko_n2000')
+
+        result = processing.run("native:dissolve", {
+            'INPUT': merge_layer,
+            'FIELD': [field_name, 'rez_przyr'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        dissolve_layer = result['OUTPUT']
+        dissolve_layer.setName('stanowisko_rez_przyr')
+        columnns_to_leave = ["NR_PLATU", "rez_przyr", "kodinspire"]
+        AtributeTableManager.removeEachColumnExeptDeclaredByLayerInstance(self, dissolve_layer, columnns_to_leave)
+        # QgsProject.instance().addMapLayer(dissolve_layer)
+
+
+        # Duplicates controll with information
+        # Get the index of the column
+        column_index = dissolve_layer.fields().indexFromName(field_name)
+
+
+        # Create a dictionary to store the count of each attribute value
+        attribute_count = {}
+
+        # Iterate through features in the layer
+        for feature in dissolve_layer.getFeatures():
+            # Get the attribute value for the specified column
+            attribute_value = feature[column_index]
+
+            # Update the count in the dictionary
+            if attribute_value in attribute_count:
+                attribute_count[attribute_value] += 1
+            else:
+                attribute_count[attribute_value] = 1
+
+        # Identify duplicate attribute values
+        duplicate_values = [value for value, count in attribute_count.items() if count > 1]
+        print(duplicate_values)
+
+
+        if len(duplicate_values) > 0:
+            CustomMessageBox.showInfoCustomMessageBox(
+                "W warstwie znajdują się płaty występujące jednocześnie w kilku rezerwatach przyrody, lub przecinają się w kilu miejscach z jednym rezerwatem przyrody!"
+                "\n\n"
+                "Wykonaj kontrolę C_0104 i popraw zasięg płatów!"
+                "\n\nDo stanowiska znajdującego się w obrębie kilku rezerwatów zostanie przypisany rezerwat o największej powierzchni."
+                "\n\nLista powierzchni występujących w kilku płatach znajduje się w raporcie kontroli.",
+                "Przypisanie rezerwatów do bazy.",
+                icon=QMessageBox.Information)
+            self.generate_csv_reports('Stanowiska występujące jednocześnie w kilku rezerwatach przyrody:', ["ID_STANOWISKA"],duplicate_values, "monitoring_gis_tools_raporty_kontroli", "T_0109_stanowiska_w_rezerwatach_przyrody.csv")
+
+
+
+        # Calculate area
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "AREA_HA", QVariant.Double)
+        layer_provider = dissolve_layer.dataProvider()
+        # layer_fields = dissolve_layer.fields()
+        column_area = dissolve_layer.fields().indexFromName("AREA_HA")
+        column_nature_reserve = dissolve_layer.fields().indexFromName("rez_przyr")
+        column_kod_inspire = dissolve_layer.fields().indexFromName("kodinspire")
+        features_of_layer = dissolve_layer.getFeatures()
+
+
+        for f in features_of_layer:
+            id = f.id()
+            # SUBAREA
+            geom = f.geometry()
+            area = geom.area() / 10000
+            area = round(area, 2)
+            attr_value_subarea = {column_area: area}
+            layer_provider.changeAttributeValues({id: attr_value_subarea})
+
+        dissolve_layer.commitChanges()
+
+        # Remove smaller part
+        max_area_dict = {}
+
+
+        # Iterate over features and update the max 'AREA' for each 'ID'
+        for feature in dissolve_layer.getFeatures():
+            id_value = feature.attributes()[column_index]
+            area_value = feature.attributes()[column_area]
+
+            if id_value not in max_area_dict or area_value > max_area_dict[id_value]:
+                max_area_dict[id_value] = area_value
+
+        # Create a list of feature IDs to keep
+        features_to_keep = []
+        for feature in dissolve_layer.getFeatures():
+            id_value = feature.attributes()[column_index]
+            area_value = feature.attributes()[column_area]
+
+            if area_value == max_area_dict[id_value]:
+                features_to_keep.append(feature.id())
+
+        # Set the selected features in the original layer
+        dissolve_layer.selectByIds(features_to_keep)
+        # Reverse the current selection
+        dissolve_layer.invertSelection()
+
+        # Delete the selected features
+        dissolve_layer.startEditing()
+        dissolve_layer.deleteSelectedFeatures()
+        dissolve_layer.commitChanges()
+
+        # Remove data from dBase
+        try:
+            # Dbase
+            d_base = self.get_dBase_directory()
+            if not d_base:
+                CustomMessageBox.showWithTimeout(5, "Brak dostępu do bazy danych bazie danych.", "", icon=QMessageBox.Information)
+                self.dockwidget.pushButton_asign_n2000_to_dbase.setStyleSheet('QPushButton {background-color: #ff0000}')
+                return False
+
+            conn = sqlite3.connect(d_base)
+            cursor = conn.cursor()
+
+            sql_query = """DELETE FROM stanowisko_rok_forma_op
+                           WHERE forma_ochrony_przyrody_cd LIKE 'rp%'
+                              OR forma_ochrony_przyrody_cd = "";"""
+            cursor.execute(sql_query)
+            deleted_rows = cursor.rowcount
+            conn.commit()
+            CustomMessageBox.showWithTimeout(5, f"Usunięto {deleted_rows} przypisań do rezerwatów przyrody z bazy danych.", "",icon=QMessageBox.Information)
+
+        except sqlite3.Error as e:
+            print(f"Error removing data from database: {e}")
+            conn.rollback()
+            self.dockwidget.pushButton_asign_nature_reserve_to_dbase.setStyleSheet('QPushButton {background-color: #ff0000}')
+            return False
+        finally:
+            conn.close()
+
+        try:
+            # Dbase
+            d_base = self.get_dBase_directory()
+            if not d_base:
+                CustomMessageBox.showWithTimeout(5, "Brak dostępu do bazy danych bazie danych.", "", icon=QMessageBox.Information)
+                return False
+
+            conn = sqlite3.connect(d_base)
+            cursor = conn.cursor()
+
+            total_inserted_rows = 0
+
+            for feature in dissolve_layer.getFeatures():
+                id = feature.id()
+                feat = dissolve_layer.getFeature(id)
+                area_id = feat[column_index]
+                nature_reserve = feat[column_nature_reserve]
+                nature_reserve_nr = feat[column_kod_inspire]
+                nature_reserve_nr_last_part = None
+
+                if nature_reserve_nr is not None and isinstance(nature_reserve_nr, str):
+                    nature_reserve_nr_last_part = nature_reserve_nr.rsplit('.', 1)[-1]
+
+
+                stanowisko_value = area_id
+                rok_value = 2023
+
+                forma_ochrony_przyrody_cd_value = None
+
+
+                if nature_reserve_nr is not None:
+                    forma_ochrony_przyrody_cd_value = 'rp_' +  nature_reserve_nr_last_part
+
+
+                # Define the SQL query to insert a new row
+                if nature_reserve is not None:
+                    sql_query = f"""INSERT INTO stanowisko_rok_forma_op (stanowisko_nr, rok, forma_ochrony_przyrody_cd) VALUES ('{stanowisko_value}', {rok_value}, '{forma_ochrony_przyrody_cd_value}');"""
+                    cursor.execute(sql_query)
+                    total_inserted_rows += cursor.rowcount
+
+            conn.commit()
+
+        except sqlite3.Error as e:
+            print(f"Error adding data to database: {e}")
+            conn.rollback()
+            self.dockwidget.pushButton_asign_nature_reserve_to_dbase.setStyleSheet('QPushButton {background-color: #ff0000}')
+            return False
+
+        finally:
+            conn.close()
+            CustomMessageBox.showWithTimeout(5, f"Dodano {total_inserted_rows} przypisań do rezerwatów z warstwy do bazy danych.", "",icon=QMessageBox.Information)
+
+        # Join layers and rewrite data between columns
+        CustomMessageBox.showWithTimeout(5, "Przepisywanie rezerwatów przyrody do warstwy siedlisk (kolumna 'rez_przyr')...", "",icon=QMessageBox.Information)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "rez_przyr", QVariant.String)
+        AtributeTableManager.rewriteDataBetweenLayers(self, dissolve_layer, layer,  "rez_przyr", field_name, field_name)
+
+
+        CustomMessageBox.showWithTimeout(5, "Zaktualizowano przypisanie do rezerwatów w bazie danych.", "", icon=QMessageBox.Information)
+        self.dockwidget.pushButton_asign_nature_reserve_to_dbase.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+        # Add layers to project
+        # QgsProject.instance().addMapLayer(common_part_layer)
+        # QgsProject.instance().addMapLayer(dissolve_layer)
+
 
 
     # C_0101
@@ -715,6 +1494,444 @@ class MonitoringTools:
         self.iface.mapCanvas().refresh()
 
 
+
+    # C_0103
+    def control_n2000_extent(self):
+
+        CustomMessageBox.showInfoCustomMessageBox("Sprawdź ustawienie warstwy zasięgu siedlisk oraz prawidłowej kolumny z numerem stanowiska!"
+                                                  "\n\n"
+                                                  "Wygenerowane zostaną warstwy: "
+                                                  "\n-płatów w obszarze N2000 (w_N2000),"
+                                                  "\n-płatów poza N2000 (poza_N2000),"
+                                                  "\n-płatów w i poza N2000 (w_poza_N2000),"
+                                                  "\n-płatów, które przecienają się z zasięgiem N2000 (bledy_zasiegu),"
+                                                  "\n\n Należy przeanalizować warstwę 'bledy_zasiegu' i skorygować dane.",
+                                                  "Kontrola zasięgu płatów względem obszarów N2000",
+                                         icon=QMessageBox.Information)
+
+        # remove_map_layer
+        self.removeMapLayerByName('N2000_PL')
+        self.removeMapLayerByName("w_N2000")
+        self.removeMapLayerByName('poza_N2000')
+        self.removeMapLayerByName('w_poza_N2000')
+        self.removeMapLayerByName('bledy_zasiegu')
+        self.removeMapLayerByName('rezerwaty_PL')
+        self.removeMapLayerByName("w_rezerwacie")
+        self.removeMapLayerByName('poza_rezerwatem')
+        self.removeMapLayerByName('w_poza_rezerwatem')
+
+
+        self.clear_info_labels()
+
+        #Get n2000 - layer
+        dirnameOfCatalog = self.resolveDir('soo_layer')
+        geopackage_path =  dirnameOfCatalog + "/N2000_PL.gpkg"
+
+        layer = self.getLayer()
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        if not layer.isValid():
+            print(f"Layer '{layer}' is not valid.")
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+
+        AtributeTableManager.removeColumnToLayerByLayerInstance(self, layer, "kod_n2000")
+        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+        field_area_id = layer.fields().indexFromName(field_name)
+
+
+        # 01 REPAIR GEOMETRY
+        result = processing.run("native:fixgeometries", {'INPUT': layer, 'OUTPUT': 'memory:'})
+        repair_geom_user_layer = result['OUTPUT']
+
+
+        natura2000_layer = self.iface.addVectorLayer(geopackage_path, "N2000_PL", "ogr")
+        if not natura2000_layer:
+            print("Layer failed to load!")
+
+
+        # 01 INTERSECT (COMMON PART)
+        result = processing.run("native:intersection", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': natura2000_layer,
+            'INPUT_FIELDS': [], 'OVERLAY_FIELDS': [], 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        common_part_layer = result['OUTPUT']
+        common_part_layer.setName('w_N2000')
+
+
+        # 02 ROZNICA
+        result = processing.run("native:difference", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': natura2000_layer,
+            'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        difference_layer = result['OUTPUT']
+        difference_layer.setName('poza_N2000')
+
+
+        # 03 MERGE
+        result = processing.run("native:mergevectorlayers", {'LAYERS': [common_part_layer, difference_layer], 'CRS': None, 'OUTPUT': 'memory:'})
+        merge_layer = result['OUTPUT']
+        merge_layer.setName('w_poza_N2000')
+        QgsProject.instance().addMapLayer(merge_layer)
+
+
+        # 04 AGREGATE
+        result = processing.run("native:dissolve", {
+            'INPUT': merge_layer,
+            'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        dissolve_layer = result['OUTPUT']
+        dissolve_layer.setName('bledy_zasiegu')
+
+
+
+        # 05 CALCULATE AREA
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "AREA_HA", QVariant.Double)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "DUPLICATE", QVariant.Int)
+        layer_provider = dissolve_layer.dataProvider()
+        layer_fields = dissolve_layer.fields()
+        field_area = layer_fields.indexFromName("AREA_HA")
+        field_duplicate = layer_fields.indexFromName("DUPLICATE")
+        features_of_layer = dissolve_layer.getFeatures()
+        field_area_id = dissolve_layer.fields().indexFromName(field_name)
+
+
+        for f in features_of_layer:
+            id = f.id()
+            feat = dissolve_layer.getFeature(id)
+
+            # SUBAREA
+            geom = f.geometry()
+            area = geom.area() / 10000
+            area = round(area, 2)
+            attr_value_subarea = {field_area: area}
+            layer_provider.changeAttributeValues({id: attr_value_subarea})
+            # area_list_from_layer.append(feat[field_area_id])
+            # list_of_subarea.append(area)
+
+
+        # 06 FIND DUPLICATES
+        # Create a dictionary to store the count of each attribute value
+        attribute_count = {}
+        duplicate_feature_ids = []
+        # Iterate through features in the layer
+        for feature in dissolve_layer.getFeatures():
+            # Get the attribute value for the specified column
+            attribute_value = feature[field_area_id]
+            # Update the count in the dictionary
+            if attribute_value in attribute_count:
+                attribute_count[attribute_value] += 1
+            else:
+                attribute_count[attribute_value] = 1
+
+        # Identify duplicate attribute values
+        duplicate_values = [value for value, count in attribute_count.items() if count > 1]
+
+
+        if len(duplicate_values) == 0:
+            self.appendDataToLabel('Brak obiektów o błędnym zasięgu w odniesieniu do obszarów Natura 2000', self.dockwidget.label_info)
+            CustomMessageBox.showWithTimeout(5, 'Brak obiektów o błędnym zasięgu w odniesieniu do obszarów Natura 2000', "", icon=QMessageBox.Information)
+            self.generate_csv_reports(f'Brak obiektów o błędnym zasięgu w odniesieniu do obszarów Natura 2000', ["ID_STANOWISKA"], duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0103_bledny_zasieg_N2000_OK.csv")
+            self.dockwidget.pushButton_control_n2000_extent.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+        else:
+            CustomMessageBox.showWithTimeout(5, 'Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do obszarów Natura 2000', "", icon=QMessageBox.Information)
+            self.appendDataToLabel('Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do obszarów Natura 2000', self.dockwidget.label_warning)
+            for duplicate_value in duplicate_values:
+                self.appendDataToLabel(str(duplicate_value), self.dockwidget.label_warning)
+            self.generate_csv_reports('Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do obszarów Natura 2000', ["ID_STANOWISKA"],duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0103_bledny_zasieg_N2000.csv")
+            self.dockwidget.pushButton_control_n2000_extent.setStyleSheet('QPushButton {background-color: #ff0000}')
+
+
+        # Iterate through features again to identify features with duplicate values
+        for feature in dissolve_layer.getFeatures():
+            attribute_value = feature[field_area_id]
+            id = feature.id()
+
+            # Check if the attribute value is in the list of duplicate values
+            if attribute_value in duplicate_values:
+                attr_value_duplicates = {field_duplicate: 1}
+                layer_provider.changeAttributeValues({id: attr_value_duplicates})
+                duplicate_feature_ids.append(feature.id())
+
+        # Select duplicates
+        # dissolve_layer.selectByIds(duplicate_feature_ids)
+        dissolve_layer.selectByExpression("DUPLICATE IS null")
+
+        # Remove the selected features
+        dissolve_layer.startEditing()
+        dissolve_layer.deleteSelectedFeatures()
+        dissolve_layer.commitChanges()
+
+        # Clear the selection
+        dissolve_layer.removeSelection()
+
+        QgsProject.instance().addMapLayer(common_part_layer)
+        QgsProject.instance().addMapLayer(difference_layer)
+        QgsProject.instance().addMapLayer(dissolve_layer)
+
+
+    # C_0104
+    def control_nat_reserve_extent(self):
+
+        CustomMessageBox.showInfoCustomMessageBox("Sprawdź ustawienie warstwy zasięgu siedlisk oraz prawidłowej kolumny z numerem stanowiska!"
+                                                  "\n\n"
+                                                    "Wygenerowane zostaną warstwy: "
+                                                  "\n-płatów w zasięgu rezerwatów (w_rezerwacie),"
+                                                  "\n-płatów poza rezerwatem (poza_rezerwatem),"
+                                                  "\n-płatów w i poza rezerwatem (w_poza_rezerwatem),"
+                                                  "\n-płatów, które przecienają się z zasięgiem rezerwatów (bledy_zasiegu),"
+                                                  "\n\n Należy przeanalizować warstwę 'bledy_zasiegu' i skorygować dane.",
+                                                  "Kontrola zasięgu płatów względem rezerwatów przyrody",
+                                         icon=QMessageBox.Information)
+
+        # remove_map_layer
+        self.removeMapLayerByName('N2000_PL')
+        self.removeMapLayerByName("w_N2000")
+        self.removeMapLayerByName('poza_N2000')
+        self.removeMapLayerByName('w_poza_N2000')
+        self.removeMapLayerByName('bledy_zasiegu')
+        self.removeMapLayerByName('rezerwaty_PL')
+        self.removeMapLayerByName("w_rezerwacie")
+        self.removeMapLayerByName('poza_rezerwatem')
+        self.removeMapLayerByName('w_poza_rezerwatem')
+
+
+
+        self.clear_info_labels()
+
+        #Get n2000 - layer
+        dirnameOfCatalog = self.resolveDir('rez_layer')
+        geopackage_path =  dirnameOfCatalog + "/rezerwaty_PL.gpkg"
+
+        layer = self.getLayer()
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        if not layer.isValid():
+            print(f"Layer '{layer}' is not valid.")
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+
+
+        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+        field_area_id = layer.fields().indexFromName(field_name)
+
+
+        # 01 REPAIR GEOMETRY
+        result = processing.run("native:fixgeometries", {'INPUT': layer, 'OUTPUT': 'memory:'})
+        repair_geom_user_layer = result['OUTPUT']
+
+
+        reserve_layer = self.iface.addVectorLayer(geopackage_path, "rezerwaty_PL", "ogr")
+        reserve_layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        if not reserve_layer:
+            print("Layer failed to load!")
+
+
+        # 01 INTERSECT (COMMON PART)
+        result = processing.run("native:intersection", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': reserve_layer,
+            'INPUT_FIELDS': [], 'OVERLAY_FIELDS': [], 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        common_part_layer = result['OUTPUT']
+        common_part_layer.setName('w_rezerwacie')
+        QgsProject.instance().addMapLayer(common_part_layer)
+
+
+
+
+        # 02 ROZNICA
+        result = processing.run("native:difference", {
+            'INPUT': repair_geom_user_layer,
+            'OVERLAY': reserve_layer,
+            'OUTPUT': 'memory:',
+            'GRID_SIZE': None})
+        difference_layer = result['OUTPUT']
+        difference_layer.setName('poza_rezerwatem')
+        QgsProject.instance().addMapLayer(difference_layer)
+
+
+        # 03 MERGE
+        result = processing.run("native:mergevectorlayers", {'LAYERS': [common_part_layer, difference_layer], 'CRS': None, 'OUTPUT': 'memory:'})
+        merge_layer = result['OUTPUT']
+        merge_layer.setName('w_poza_rezerwatem')
+        QgsProject.instance().addMapLayer(merge_layer)
+
+
+        # 04 AGREGATE
+        result = processing.run("native:dissolve", {
+            'INPUT': merge_layer,
+            'FIELD': [field_name, 'rez_przyr'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
+        dissolve_layer = result['OUTPUT']
+        dissolve_layer.setName('bledy_zasiegu')
+        QgsProject.instance().addMapLayer(dissolve_layer)
+
+
+
+        # 05 CALCULATE AREA
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "AREA_HA", QVariant.Double)
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "DUPLICATE", QVariant.Int)
+        layer_provider = dissolve_layer.dataProvider()
+        layer_fields = dissolve_layer.fields()
+        field_area = layer_fields.indexFromName("AREA_HA")
+        field_duplicate = layer_fields.indexFromName("DUPLICATE")
+        features_of_layer = dissolve_layer.getFeatures()
+        field_area_id = dissolve_layer.fields().indexFromName(field_name)
+
+
+        for f in features_of_layer:
+            id = f.id()
+            feat = dissolve_layer.getFeature(id)
+
+            # SUBAREA
+            geom = f.geometry()
+            area = geom.area() / 10000
+            area = round(area, 2)
+            attr_value_subarea = {field_area: area}
+            layer_provider.changeAttributeValues({id: attr_value_subarea})
+            # area_list_from_layer.append(feat[field_area_id])
+            # list_of_subarea.append(area)
+
+
+        # 06 FIND DUPLICATES
+        # Create a dictionary to store the count of each attribute value
+        attribute_count = {}
+        duplicate_feature_ids = []
+        # Iterate through features in the layer
+        for feature in dissolve_layer.getFeatures():
+            # Get the attribute value for the specified column
+            attribute_value = feature[field_area_id]
+            # Update the count in the dictionary
+            if attribute_value in attribute_count:
+                attribute_count[attribute_value] += 1
+            else:
+                attribute_count[attribute_value] = 1
+
+        # Identify duplicate attribute values
+        duplicate_values = [value for value, count in attribute_count.items() if count > 1]
+
+
+        if len(duplicate_values) == 0:
+            self.appendDataToLabel('Brak obiektów o błędnym zasięgu w odniesieniu do rezerwatów', self.dockwidget.label_info)
+            CustomMessageBox.showWithTimeout(5, 'Brak obiektów o błędnym zasięgu w odniesieniu do rezerwatów', "", icon=QMessageBox.Information)
+            self.generate_csv_reports(f'Brak obiektów o błędnym zasięgu w odniesieniu do rezerwatów', ["ID_STANOWISKA"], duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0104_bledny_zasieg_rererwaty_OK.csv")
+            self.dockwidget.pushButton_control_nat_reserve_extent.setStyleSheet('QPushButton {background-color: #3cb371}')
+
+        else:
+            CustomMessageBox.showWithTimeout(5, 'Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do rezerwatów przyrody', "", icon=QMessageBox.Information)
+            self.appendDataToLabel('Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do rezerwatów przyrody', self.dockwidget.label_warning)
+            for duplicate_value in duplicate_values:
+                self.appendDataToLabel(str(duplicate_value), self.dockwidget.label_warning)
+            self.generate_csv_reports('Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do rezerwatów przyrody', ["ID_STANOWISKA"],duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0104_bledny_zasieg_rererwaty.csv")
+            self.dockwidget.pushButton_control_nat_reserve_extent.setStyleSheet('QPushButton {background-color: #ff0000}')
+
+
+        # Iterate through features again to identify features with duplicate values
+        for feature in dissolve_layer.getFeatures():
+            attribute_value = feature[field_area_id]
+            id = feature.id()
+
+            # Check if the attribute value is in the list of duplicate values
+            if attribute_value in duplicate_values:
+                attr_value_duplicates = {field_duplicate: 1}
+                layer_provider.changeAttributeValues({id: attr_value_duplicates})
+                duplicate_feature_ids.append(feature.id())
+
+        # Select duplicates
+        # dissolve_layer.selectByIds(duplicate_feature_ids)
+        dissolve_layer.selectByExpression("DUPLICATE IS null")
+
+        # Remove the selected features
+        dissolve_layer.startEditing()
+        dissolve_layer.deleteSelectedFeatures()
+        dissolve_layer.commitChanges()
+
+        # Clear the selection
+        dissolve_layer.removeSelection()
+
+
+    # C_0105
+    def find_overlaps(self):
+
+        self.clear_info_labels()
+
+        layer = self.getLayer()
+        if not layer.isValid():
+            print(f"Layer '{layer}' is not valid.")
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ID", QVariant.Int)
+        AtributeTableManager.recalculateIDInColumnByLayerInstance(self, layer, "ID", 0)
+
+        result = processing.run("native:union", {'INPUT': layer,'OVERLAY': layer,'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:', 'GRID_SIZE': None})
+        unionLayer = result['OUTPUT']
+
+        unionLayer.selectByExpression('"ID" <> "ID_2"')
+
+        layer.triggerRepaint()
+        unionLayer.invertSelection()
+        unionLayer.startEditing()
+        unionLayer.deleteSelectedFeatures()
+        unionLayer.commitChanges()
+
+        unionLayer.setName('nalozenia_overlaps')
+        QgsProject.instance().addMapLayer(unionLayer)
+
+
+    def find_gaps(self):
+
+        self.clear_info_labels()
+
+        layer = self.getLayer()
+        if not layer.isValid():
+            print(f"Layer '{layer}' is not valid.")
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+
+        # Make extent of layer
+        result = processing.run("native:polygonfromlayerextent", {'INPUT': layer, 'ROUND_TO': 0, 'OUTPUT': 'memory:'})
+        extent_layer = result['OUTPUT']
+
+        # make symetrical difference
+        result = processing.run("native:symmetricaldifference", {'INPUT': layer, 'OVERLAY': extent_layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:', 'GRID_SIZE': None})
+        symmetrical_difference_layer = result['OUTPUT']
+
+        # Explode multipart
+        result = processing.run("native:multiparttosingleparts", {'INPUT': symmetrical_difference_layer, 'OUTPUT': 'memory:'})
+        difference_layer_exploaded = result['OUTPUT']
+
+        # Calculate area
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "AREA_HA", QVariant.Double)
+        layer_provider = difference_layer_exploaded.dataProvider()
+        column_area = difference_layer_exploaded.fields().indexFromName("AREA_HA")
+        for f in difference_layer_exploaded.getFeatures():
+            id = f.id()
+            geom = f.geometry()
+            area = geom.area() / 10000
+            area = round(area, 2)
+            attr_value_subarea = {column_area: area}
+            layer_provider.changeAttributeValues({id: attr_value_subarea})
+        difference_layer_exploaded.commitChanges()
+
+        # Remove the feature with the maximum 'AREA_HA'
+        max_area_feature = max(difference_layer_exploaded.getFeatures(QgsFeatureRequest().setFlags(QgsFeatureRequest.NoGeometry)),key=lambda f: f['AREA_HA'])
+        difference_layer_exploaded.startEditing()
+        difference_layer_exploaded.deleteFeature(max_area_feature.id())
+        difference_layer_exploaded.commitChanges()
+
+        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "ID", QVariant.Int)
+        AtributeTableManager.recalculateIDInColumnByLayerInstance(self, difference_layer_exploaded, "ID", 0)
+        AtributeTableManager.removeEachColumnExeptDeclaredByLayerInstance(self, difference_layer_exploaded, ["ID",'AREA_HA'] )
+
+        difference_layer_exploaded.setName('dziury_gaps')
+        QgsProject.instance().addMapLayer(difference_layer_exploaded)
+
+
     # C_0201
     def numeration_validating_map_dBase(self):
 
@@ -760,10 +1977,7 @@ class MonitoringTools:
     # C_0203 OK
     def control_coordinates(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr "
-                                         "FROM stanowisko "
-                                         "INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr "
-                                         "WHERE COALESCE(x, 0) = 0 OR COALESCE(y, 0) = 0;")
+        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr FROM stanowisko INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr WHERE COALESCE(cast(x as text), '') in ('','0.0','0') OR COALESCE(cast(y as text), '') in ('','0.0','0');")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -878,7 +2092,7 @@ class MonitoringTools:
                                          "from stanowisko s "
                                          "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr "
                                          "where projekt_fl "
-                                         "and coalesce(sr.komentarz_ocena_stanu_ochrony,'') not in ('',' ');")
+                                         "and coalesce(sr.komentarz_ocena_stanu_ochrony,'') in ('',' ');")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -898,7 +2112,7 @@ class MonitoringTools:
 
         list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
                                          "from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
-                                         "JOIN stanowisko_rok_parametr srp on s.stanowisko_nr = srp.stanowisko_nr "
+                                         "LEFT JOIN stanowisko_rok_parametr srp on s.stanowisko_nr = srp.stanowisko_nr "
                                          "WHERE ss.projekt_fl AND "
                                          "coalesce(srp.komentarz,'') in ('',' ','⁶','*','/','6','I','7','&','l','y','o','8','w','9','-','.','v','i','(','k','. ','pl','90','11','|. ','   ','see','''','''''',' .',' ');")
 
@@ -919,7 +2133,12 @@ class MonitoringTools:
     # C_0209 OK
     def missing_indicators_assasement_desc(self):
 
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok_wskaznik srw on s.stanowisko_nr = srw.stanowisko_nr join sl_siedlisko_wskaznik ssw on s.siedlisko_cd=ssw.siedlisko_cd WHERE ss.projekt_fl and ssw.wskaznik_rodzaj_cd='O' AND coalesce(srw.wartosc,'') in ('',' ','''','''''','|','/','.','-',',','~','!','p','l','po','ww','''-','Bra','jw.','...',' ',' ');")
+        # list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok_wskaznik srw on s.stanowisko_nr = srw.stanowisko_nr join sl_siedlisko_wskaznik ssw on s.siedlisko_cd=ssw.siedlisko_cd WHERE ss.projekt_fl and ssw.wskaznik_rodzaj_cd='O' AND coalesce(srw.wartosc,'') in ('',' ','''','''''','|','/','.','-',',','~','!','p','l','po','ww','''-','Bra','jw.','...',' ',' ');")
+
+        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd = ss.siedlisko_cd JOIN stanowisko_rok_wskaznik srw on s.stanowisko_nr = srw.stanowisko_nr join sl_siedlisko_wskaznik ssw on s.siedlisko_cd = ssw.siedlisko_cd and srw.wskaznik_nr = ssw.wskaznik_nr JOIN sl_wskaznik sw on srw.wskaznik_nr = sw.wskaznik_nr WHERE ss.projekt_fl and ssw.wskaznik_rodzaj_cd = 'O' AND coalesce(srw.wartosc, '') in ('', ' ','''','''''','|','/','.','-',',','~','!','p','l','po','ww',''' - ',' Bra','jw.','...',' ',' ');")
+
+
+
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -1070,7 +2289,15 @@ class MonitoringTools:
     # C_0219 OK
     def missing_protectiv_actions(self):
 
-        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join stanowisko_rok_dzialanieochronne srd on sr.stanowisko_nr=srd.stanowisko_nr and sr.rok=srd.rok where ss.projekt_fl and (coalesce(srd.dzialanie_cd,'') not in (select dzialanie_cd from sl_dzialanie_ochronne) or coalesce(srd.dzialanie_typ_cd,'') not in (select dzialanie_typ_cd from sl_dzialanie_ochronne_typ) or (srd.powierzchnia=0 and not cala_pow_fl) or (length(coalesce(srd.opis,'')<4) and length(coalesce(srd.dodatkowe_uwarunkowania,'')<4)));")
+        # list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join stanowisko_rok_dzialanieochronne srd on sr.stanowisko_nr=srd.stanowisko_nr and sr.rok=srd.rok where ss.projekt_fl and (coalesce(srd.dzialanie_cd,'') not in (select dzialanie_cd from sl_dzialanie_ochronne) or coalesce(srd.dzialanie_typ_cd,'') not in (select dzialanie_typ_cd from sl_dzialanie_ochronne_typ) or (srd.powierzchnia=0 and not cala_pow_fl) or (length(coalesce(srd.opis,'')<4) and length(coalesce(srd.dodatkowe_uwarunkowania,'')<4)));")
+
+        list = self.getListOfAreaByQuery("select distinct srd.stanowisko_nr from stanowisko s "
+                                         "join sl_siedlisko ss on s.siedlisko_cd = ss.siedlisko_cd "
+                                         "join stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
+                                         "join stanowisko_rok_dzialanieochronne srd on sr.stanowisko_nr = srd.stanowisko_nr and sr.rok = srd.rok "
+                                         "where ss.projekt_fl "
+                                         "and (coalesce(srd.dzialanie_cd, '') not in (select dzialanie_cd from sl_dzialanie_ochronne) or coalesce(trim(srd.dzialanie_typ_cd), '') not in (select dzialanie_typ_nm from sl_dzialanie_ochronne_typ sdot) or (srd.powierzchnia=0 and not cala_pow_fl) or (length(coalesce(srd.opis, '')) < 4));")
+
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -1105,12 +2332,14 @@ class MonitoringTools:
 
     # C_0221
     def compatibility_validation(self):
-        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr "
-                                         "from stanowisko s left join sl_siedlisko s1 on s.siedlisko_plan_cd=s1.siedlisko_cd left join sl_siedlisko s2 on s.siedlisko_lp_cd  =s2.siedlisko_cd left join sl_siedlisko s3 on s.siedlisko_cd     =s3.siedlisko_cd where not((s.siedlisko_plan_cd=s.siedlisko_cd and zgodnosc_cd=1) or (coalesce(s1.projekt_fl,0)=0 and coalesce(s2.projekt_fl,0)=0 and s3.projekt_fl=1 and zgodnosc_cd=2) or (s.siedlisko_plan_cd!=s.siedlisko_cd and s1.projekt_fl and s3.projekt_fl and zgodnosc_cd=3) or (s1.projekt_fl=1 and s3.projekt_fl=0 and s.zgodnosc_cd=4) or (s1.projekt_fl=1 and s.siedlisko_cd='brak' and zgodnosc_cd in (5,6,7)) or (s.siedlisko_lp_cd=s.siedlisko_cd and coalesce(s1.projekt_fl,0)=0 and s.zgodnosc_cd=8) or (s2.projekt_fl=1 and coalesce(s3.projekt_fl,0)=0 and s.zgodnosc_cd=9)) or coalesce(s.zgodnosc_cd,0) in (0,'')")
+        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s left "
+                                         "join sl_siedlisko s1 on s.siedlisko_plan_cd=s1.siedlisko_cd left join sl_siedlisko s2 on s.siedlisko_lp_cd  =s2.siedlisko_cd left join sl_siedlisko s3 on s.siedlisko_cd=s3.siedlisko_cd "
+                                         "where coalesce(s.zgodnosc_cd,0) in (0,'') or not((s.siedlisko_plan_cd=s.siedlisko_cd and zgodnosc_cd=1) or (coalesce(s1.projekt_fl,0)=0 and coalesce(s2.projekt_fl,0)=0 and s3.projekt_fl=1 and zgodnosc_cd in (2,8)) or (s.siedlisko_plan_cd!=s.siedlisko_cd and coalesce(s.siedlisko_plan_cd,'') not in ('','brak') "
+                                         "and s3.projekt_fl and zgodnosc_cd=3) or (s1.projekt_fl=1 and s3.projekt_fl=0 and s.zgodnosc_cd=4) or (coalesce(s.siedlisko_plan_cd,'') not in ('','brak') and s.siedlisko_cd='brak' and zgodnosc_cd in (5,6,7)) or ((((s.siedlisko_lp_cd=s.siedlisko_cd or s3.projekt_fl)and coalesce(s1.projekt_fl,0)=0) or (coalesce(s.siedlisko_plan_cd,'') in ('','brak') and coalesce(s.siedlisko_lp_cd,'') in ('','brak') and s3.projekt_fl)) and s.zgodnosc_cd=8) or (((s2.projekt_fl=1 and coalesce(s3.projekt_fl,0)=0) or (s.siedlisko_plan_cd='brak' or s.siedlisko_lp_cd='brak' or s.siedlisko_cd='brak')) and s.zgodnosc_cd=9));")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Błędne oznaczenia (brak oznaczenia) zgodności z dokumentacją:", self.dockwidget.label_warning)
+            self.appendDataToLabel(f"Błędne oznaczenia (brak oznaczenia) zgodności z dokumentacją w {str(len(list))} przypadkach!", self.dockwidget.label_warning)
             for data_dbase in list:
                 self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
             self.generate_csv_reports("Błędne oznaczenia (brak oznaczenia) zgodności z dokumentacją:", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0221_wykaz_stanowisk_z_bledna_ocena_zgodnosci.csv")
@@ -1147,7 +2376,7 @@ class MonitoringTools:
 
     # C_0223 OK
     def missing_resigantion_cause(self):
-        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd where ss.projekt_fl and rezygnacja_fl and length(coalesce(uzasadnienie_rezygnacji,''))<4;")
+        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr where rezygnacja_fl and length(coalesce(uzasadnienie_rezygnacji,''))<4;")
 
         if len(list) > 0:
             self.appendDataToLabel("", self.dockwidget.label_warning)
@@ -1283,6 +2512,145 @@ class MonitoringTools:
             self.dockwidget.pushButton_compatibilyty.setStyleSheet('QPushButton {background-color: #3cb371}')
 
 
+
+    def make_buffer_area(self):
+
+        # Clear info labels
+        self.clear_info_labels()
+        self.removeMapLayerByName('polygonized_layer')
+
+        layer = self.dockwidget.mMapLayerComboBoxAraesPolygon.currentLayer()
+        additional_height = self.dockwidget.lineEdit_additional_height.text().replace(",", ".")
+        reduced_height = self.dockwidget.lineEdit_reduced_height.text().replace(",", ".")
+
+        if not (layer):
+            self.dockwidget.label_warning.setText("Nie wskazano warstwy!")
+            return False
+
+        feature_to_analize = layer.selectedFeatures()
+
+        # Create a temporary layer for the selected features
+        temp_layer = QgsVectorLayer("Polygon?crs=" + layer.crs().authid(), "temp_buffer", "memory")
+        temp_layer.dataProvider().addFeatures(feature_to_analize)
+        # QgsProject.instance().addMapLayer(temp_layer)
+
+        raster_layer = self.dockwidget.mMapLayerComboBox_nmt_raster.currentLayer()
+
+
+
+        # Clip raster by selected feature
+        result = processing.run("gdal:cliprasterbymasklayer", {
+            'INPUT': raster_layer,
+            'MASK': temp_layer,
+            'SOURCE_CRS': QgsCoordinateReferenceSystem('EPSG:2180'),
+            'TARGET_CRS': QgsCoordinateReferenceSystem('EPSG:2180'),
+            'TARGET_EXTENT': None,
+            'NODATA': None,
+            'ALPHA_BAND': False,
+            'CROP_TO_CUTLINE': True,
+            'KEEP_RESOLUTION': False,
+            'SET_RESOLUTION': False,
+            'X_RESOLUTION': None,
+            'Y_RESOLUTION': None,
+            'MULTITHREADING': False,
+            'OPTIONS': '',
+            'DATA_TYPE': 0,
+            'EXTRA': '',
+            'OUTPUT': 'TEMPORARY_OUTPUT'})
+        cut_result_raster = QgsRasterLayer(result['OUTPUT'], 'result_layer')
+        # QgsProject.instance().addMapLayer(cut_result_raster)
+
+
+        # Calculate statistics
+        provider = cut_result_raster.dataProvider()
+        ext = cut_result_raster.extent()
+        stats = provider.bandStatistics(1, QgsRasterBandStats.All, ext, 0)
+
+        self.appendDataToLabel("Minmalna wysokość: " + str(round(stats.minimumValue,2)) + " m", self.dockwidget.label_info)
+        self.appendDataToLabel("Maksymalna wysokość: " + str(round(stats.maximumValue,2)) + " m", self.dockwidget.label_info)
+        self.appendDataToLabel("średnia wysokość: " + str(round(stats.mean,2)) + " m", self.dockwidget.label_info)
+        self.appendDataToLabel("Odchylenie standardowe: " + str(round(stats.stdDev,2)), self.dockwidget.label_info)
+
+
+
+        # 01 Buffer of polygon to analize
+        max_buffer_width = self.dockwidget.lineEdit_max_buffer_width.text()
+        result = processing.run("native:buffer", {'INPUT': temp_layer, 'DISTANCE': max_buffer_width, 'SEGMENTS': 5, 'END_CAP_STYLE': 0, 'JOIN_STYLE': 0, 'MITER_LIMIT': 2,'DISSOLVE': False,'OUTPUT': 'memory:'})
+        buffer_layer = result['OUTPUT']
+        buffer_layer.setName('buffer')
+        # QgsProject.instance().addMapLayer(buffer_layer)
+
+
+        #02 Difference - ring
+        result = processing.run("native:difference", {'INPUT': buffer_layer, 'OVERLAY': temp_layer, 'OUTPUT': 'memory:', 'GRID_SIZE': None})
+        difference_layer = result['OUTPUT']
+        difference_layer.setName('difference')
+        # QgsProject.instance().addMapLayer(difference_layer)
+
+
+        # 03 Cut raster by polygon
+        result = processing.run("gdal:cliprasterbymasklayer", {
+            'INPUT': raster_layer,
+            'MASK': difference_layer,
+            'SOURCE_CRS': QgsCoordinateReferenceSystem('EPSG:2180'),
+            'TARGET_CRS': QgsCoordinateReferenceSystem('EPSG:2180'),
+            'TARGET_EXTENT': None,
+            'NODATA': None,
+            'ALPHA_BAND': False,
+            'CROP_TO_CUTLINE': True,
+            'KEEP_RESOLUTION': False,
+            'SET_RESOLUTION': False,
+            'X_RESOLUTION': None,
+            'Y_RESOLUTION': None,
+            'MULTITHREADING': False,
+            'OPTIONS': '',
+            'DATA_TYPE': 0,
+            'EXTRA': '',
+            'OUTPUT': 'TEMPORARY_OUTPUT'})
+        cut_result_raster = QgsRasterLayer(result['OUTPUT'], 'result_layer')
+        # QgsProject.instance().addMapLayer(cut_result_raster)
+
+
+        # 04 First seection on raster
+        max_buffer_heigth = str(round(stats.mean) + float(additional_height))
+        min_buffer_heigth = str(round(stats.minimumValue) + float(reduced_height))
+        # expression = '(1 * (A < 10) + 1 > 50)'
+        # expresion = f'((A < {max_buffer_heigth}) + (A > {round(stats.maximumValue)}))'
+        # expresion = f'((A < {max_buffer_heigth}))'
+
+
+
+
+        if self.dockwidget.checkBox_analize_min_heigth.isChecked():
+            expresion = f'(A > {min_buffer_heigth})*(A <= {max_buffer_heigth}) * 2'
+        else:
+            expresion = f'((A <= {max_buffer_heigth}))'
+
+        parameters = {'INPUT_A': cut_result_raster, 'BAND_A': 1, 'FORMULA': expresion, 'NODATAVALUE': 1, 'OUTPUT': 'TEMPORARY_OUTPUT'}
+        result = processing.run('gdal:rastercalculator', parameters)  # feed in the param
+        analize_result_raster = QgsRasterLayer(result['OUTPUT'], 'result_layer01')
+        # QgsProject.instance().addMapLayer(analize_result_raster)
+
+
+        # 06 raster to polygon
+        result = processing.run("gdal:polygonize", {
+            'INPUT': analize_result_raster,
+            'BAND': 1, 'FIELD': 'DN', 'EIGHT_CONNECTEDNESS': False, 'EXTRA': '', 'OUTPUT': 'TEMPORARY_OUTPUT'})
+        polygonized_layer = QgsVectorLayer(result['OUTPUT'], 'polygonized_layer')
+
+        # 07 Remove 0 values
+
+        polygonized_layer.selectByExpression("DN = 0")
+        polygonized_layer.startEditing()
+        polygonized_layer.deleteSelectedFeatures()
+        polygonized_layer.commitChanges()
+        polygonized_layer.removeSelection()
+
+        QgsProject.instance().addMapLayer(polygonized_layer)
+
+
+
+
     def getListOfAreaByQuery(self, query):
 
         list = []
@@ -1382,13 +2750,45 @@ class MonitoringTools:
             # write multiple rows
             writer.writerows(data)
 
+    def repair_geometry_and_resave(input_path, output_path):
+        # Load the input vector layer
+        input_layer = QgsVectorLayer(input_path, 'input_layer', 'ogr')
+
+        # Check if the layer is loaded successfully
+        if not input_layer.isValid():
+            print(f'Error: The input layer {input_path} failed to load!')
+            return
+
+        # Run the "native:fixgeometries" algorithm to repair geometry
+        feedback = QgsProcessingFeedback()
+        params = {'INPUT': input_layer, 'OUTPUT': 'memory:'}
+        result = processing.run("native:fixgeometries", params, feedback=feedback)
+
+        # Check if the algorithm ran successfully
+        if result['OUTPUT'] is None:
+            print('Error: Geometry repair failed!')
+            return
+
+        # Save the repaired layer to a new file
+        repaired_layer = result['OUTPUT']
+        QgsVectorFileWriter.writeAsVectorFormat(repaired_layer, output_path, 'utf-8', None, 'ESRI Shapefile')
+
+        print(f'Repaired geometry saved to {output_path}')
 
 
+    def removeMapLayerByName(self, layer_name_to_remove):
 
+        root = QgsProject.instance().layerTreeRoot()
+        for layer in root.children():
+            layerName = str(layer.name())
+            if layerName == str(layer_name_to_remove):
+                layerByName = QgsProject.instance().mapLayersByName(layerName)[0]
+                QgsProject.instance().removeMapLayer(layerByName.id())
 
-
-
-
+        # map_layers = QgsProject.instance().mapLayers()
+        # if layer_name in map_layers:
+        #     layerByName = QgsProject.instance().mapLayersByName(layer_name)[0]
+        #     QgsProject.instance().removeMapLayer(layerByName.id())
 
     #--------------------------------------------------------------------------
     def run(self):
@@ -1431,15 +2831,48 @@ class MonitoringTools:
             # T_0103
             self.dockwidget.pushButton_add_coordinates_to_d_base.clicked.connect(self.add_coordinates_to_dbase)
 
+            # T_0104
+            self.dockwidget.pushButton_correct_compatibility.clicked.connect(self.corect_compatibility)
+
+            # T_0105
+            self.dockwidget.pushButton_asign_n2000_to_dbase.clicked.connect(self.asign_n2000_to_dbase)
+
+            # T_0106
+            self.dockwidget.pushButton_repair_geometryset_crs.clicked.connect(self.repair_geometry_cet_crs)
+
+            # T_0107
+            self.dockwidget.pushButton_round_geometry.clicked.connect(self.round_geometry)
+
+            # T_0108
+            self.dockwidget.pushButton_prepare_structure.clicked.connect(self.prepare_structure)
+
+            # T_0109
+            self.dockwidget.pushButton_asign_nature_reserve_to_dbase.clicked.connect(self.asign_nature_reserve_to_dbase)
+
+
             # C_0102
             self.dockwidget.pushButton_control_duplicates.clicked.connect(self.control_duplicates)
+            # C_0103
+            self.dockwidget.pushButton_control_n2000_extent.clicked.connect(self.control_n2000_extent)
+            # C_0104
+            self.dockwidget.pushButton_control_nat_reserve_extent.clicked.connect(self.control_nat_reserve_extent)
+            # C_0105
+            self.dockwidget.pushButton_find_overlaps.clicked.connect(self.find_overlaps)
+            # C_01006
+            self.dockwidget.pushButton_find_gaps.clicked.connect(self.find_gaps)
 
+
+            # C_0203
             self.dockwidget.pushButton_control_coordinates.clicked.connect(self.control_coordinates)
+            # C_0204
             self.dockwidget.pushButton_control_missing_gen_assasement.clicked.connect(self.missing_gen_assasement)
+            # C_0205
             self.dockwidget.pushButton_control_missing_par_assasement.clicked.connect(self.missing_par_assasement)
             self.dockwidget.pushButton_control_missing_gen_assasement_desc.clicked.connect(self.missing_gen_assasement_desc)
             self.dockwidget.pushButton_control_missing_par_assasement_desc.clicked.connect(self.missing_par_assasement_desc)
+            # C_0209
             self.dockwidget.pushButton_control_missing_indicators_assasement.clicked.connect(self.missing_indicators_assasement)
+
             self.dockwidget.pushButton_control_missing_indicators_assasement_desc.clicked.connect(self.missing_indicators_assasement_desc)
             # C_0210
             self.dockwidget.pushButton_control_missing_gen_assasement_exist_desc_assasement.clicked.connect(self.missing_gen_assasement_exist_desc_assasement)
@@ -1461,15 +2894,14 @@ class MonitoringTools:
             self.dockwidget.pushButton_missingelements_in_photo_documentation.clicked.connect(self.missing_elements_in_photo_doc)
             # 0221
             self.dockwidget.pushButton_compatibility_validation.clicked.connect(self.compatibility_validation)
-
             # C_0222
             self.dockwidget.pushButton_missing_resigantion_exist_resignation_cause.clicked.connect(self.missing_resigantion_exist_resignation_cause)
-
             # C_0223
             self.dockwidget.pushButton_missing_resigantion_cause.clicked.connect(self.missing_resigantion_cause)
+            # T_0301
+            self.dockwidget.mMapLayerComboBox_nmt_raster.setFilters(QgsMapLayerProxyModel.RasterLayer)
+            self.dockwidget.pushButton_make_buffer_area.clicked.connect(self.make_buffer_area)
 
-            # C_0224
-            self.dockwidget.pushButton_invalid_coordinates.clicked.connect(self.control_coordinates_extend_pl)
 
 
 

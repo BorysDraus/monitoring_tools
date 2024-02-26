@@ -2,11 +2,12 @@ import sys
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QMessageBox, QWidget
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar, QProgressDialog
 from qgis.core import QgsProject, Qgis, QgsVectorLayer, QgsProcessingFeedback,  QgsFields, QgsCoordinateReferenceSystem
 from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsVectorDataProvider, QgsField, QgsRectangle, QgsMapLayerProxyModel, QgsProcessing
 from qgis.core import *
 from .TimerMessageBox import CustomMessageBox
-
+# from qgis.gui import QProgressDialog
 
 class AtributeTableManager():
 
@@ -32,6 +33,84 @@ class AtributeTableManager():
         layer.commitChanges()
 
 
+    def rewriteDataBetweenLayers(self, layerSource, layerTarget, column_to_rewrite_name, column_ID_layer_source_name, column_ID_layer_target_name):
+
+
+        # layer_source_provider = layerSource.dataProvider()
+        # layer_target_provider = layerTarget.dataProvider()
+
+        field_rewrite_from = layerSource.fields().indexFromName(column_to_rewrite_name)
+        field_id_source = layerSource.fields().indexFromName(column_ID_layer_source_name)
+        field_id_target = layerTarget.fields().indexFromName(column_ID_layer_target_name)
+
+        # Check if the column exists
+        if field_rewrite_from != -1:
+            # Get the field (column) object
+            field = layerSource.fields().field(field_rewrite_from)
+            # Get the data type of the field
+            data_type = field.typeName()
+            print(str(data_type))
+
+        # Add column to table
+        layerTarget.startEditing()
+        layer_provider = layerTarget.dataProvider()
+        field_index = layerTarget.fields().indexFromName(column_to_rewrite_name)
+        if field_index == -1:
+            layer_provider.addAttributes([QgsField(column_to_rewrite_name, dataType)])
+        try:
+            layerTarget.updateFields()
+        except:
+            CustomMessageBox.showWithTimeout(5, "Nie dodano nowych kolumn! Sprawdź tabelę atrybutów", "", icon=QMessageBox.Warning)
+        layerTarget.commitChanges()
+        layerTarget.updateExtents()
+        field_rewrite_to = layerTarget.fields().indexFromName(column_to_rewrite_name)
+
+
+        # TST
+        # total_features = layerTarget.featureCount()
+        # # Create a progress dialog
+        # progress_dialog = QProgressDialog("Processing...", "Cancel", 0, total_features)
+        # progress_dialog.setWindowModality(Qt.WindowModal)
+        # progress_dialog.setWindowTitle("My Plugin")
+        # progress_dialog.show()
+
+        total_features = layerSource.featureCount()
+        layer_provider = layerTarget.dataProvider()
+
+        progress_dialog = QProgressDialog("Processing...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(2)  # Make the dialog modal
+        progress_dialog.show()
+
+        # Loop through layerTarget
+        for targetFeatures in layerTarget.getFeatures():
+            id_target = targetFeatures.id()
+            feat_target = layerTarget.getFeature(id_target)
+            join_id_number_target = feat_target[field_id_target]
+
+            progress_dialog.setValue(id_target)
+            # i = i + 1
+
+            for sourceFeatures in layerSource.getFeatures():
+                id_source = sourceFeatures.id()
+                feat_source = layerSource.getFeature(id_source)
+                join_id_number_source = feat_source[field_id_source]
+                value_to_rewrite = feat_source[field_rewrite_from] or 0
+
+                if join_id_number_target == join_id_number_source:
+                    attr_to = {field_rewrite_to: value_to_rewrite}
+                    layer_provider.changeAttributeValues({id_target: attr_to})
+
+                # Update progress
+                # progress_dialog.setValue(i)
+
+        layerTarget.commitChanges()
+        progress_dialog.setValue(total_features)
+        progress_dialog.close()
+
+
+        # QgsApplication.processEvents()
+        #
+        # progress_dialog.close()
 
 
     # Metoda zmieniająca nazwę kolumny we wskazanej warstwie
@@ -106,6 +185,8 @@ class AtributeTableManager():
         layer.updateExtents()
 
 
+
+
     # Metoda usuwająca  kolumnę
     def removeColumnToLayerByLayerInstance(self, layer, columnName):
         layer.startEditing()
@@ -120,6 +201,32 @@ class AtributeTableManager():
                                              icon=QMessageBox.Warning)
         layer.commitChanges()
         layer.updateExtents()
+
+
+
+
+    # Metoda usuwająca  kolumny poza zadeklarowanmi
+    def removeEachColumnExeptDeclaredByLayerInstance(self, layer, columns_to_leave):
+
+        column_names = [field.name() for field in layer.fields()]
+        reduced_column_names = [item for item in column_names if item not in columns_to_leave]
+
+        layer.startEditing()
+        layer_provider = layer.dataProvider()
+
+        for column in reduced_column_names:
+
+            field_index = layer.fields().indexFromName(column)
+            if  field_index > -1:
+                layer_provider.deleteAttributes([field_index])
+            try:
+                layer.updateFields()
+            except:
+                CustomMessageBox.showWithTimeout(5, "Nie usunięto kolumn! Sprawdź tabelę atrybutów", "", icon=QMessageBox.Warning)
+
+        layer.commitChanges()
+        layer.updateExtents()
+
 
 
     # Round data from column
@@ -173,6 +280,7 @@ class AtributeTableManager():
         return AtributeTableManager.layerByNameExists(layerName) and \
                QgsProject.instance().mapLayersByName(layerName)[0].fields().indexFromName(columnName) > -1
 
+
     # Metoda wpisująca jednakową wartość w całej kolumnie wskazanej warstwy
     def fillWholeColumnInLayerWith(self, layerName, columnName, value):
         # poniższe przypadki w przyszłości można zastąpić wyrzucaniem wyjątków (tymczasowo można zakomentować)
@@ -225,8 +333,7 @@ class AtributeTableManager():
         # poniższe przypadki w przyszłości można zastąpić wyrzucaniem wyjątków (tymczasowo można zakomentować)
         # gdy brak wartości
         if value is None:
-            CustomMessageBox.showWithTimeout(5, "Zmiana wartości atrubutu: brak wartości", "",
-                                             icon=QMessageBox.Warning)
+            # CustomMessageBox.showWithTimeout(5, "Zmiana wartości atrubutu: brak wartości", "", icon=QMessageBox.Warning)
             return
         # gdy brak warstwy
         if not AtributeTableManager.layerByNameExists(layerName):

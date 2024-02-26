@@ -31,3 +31,17 @@ class CustomMessageBox(QMessageBox):
         w.setIcon(icon)
         w.setStandardButtons(buttons)
         w.exec_()
+
+
+
+
+    @staticmethod
+    def showInfoCustomMessageBox(message, title, icon=QMessageBox.Information, buttons=QMessageBox.Ok):
+        w = CustomMessageBox()
+        # w.autoclose = True
+        # w.timeout = timeoutSeconds
+        w.setText(message)
+        w.setWindowTitle(title)
+        w.setIcon(icon)
+        w.setStandardButtons(buttons)
+        w.exec_()
