@@ -21,16 +21,20 @@
  *                                                                         *
  ***************************************************************************/
 """
-
+from typing import List
 
 from qgis import processing, PyQt
-from qgis.core import QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
+from qgis.core import QgsLayerTreeLayer, QgsPoint, QgsPointLocator, QgsSnappingConfig, QgsSnappingUtils, QgsTolerance, QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
 from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferenceSystem,QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar, QProgressDialog
 from PyQt5.QtWidgets import QMessageBox, QWidget
 from PyQt5.QtCore import QVariant, Qt,QFileInfo
+from shapely import Polygon, unary_union, LineString, MultiLineString, Point, MultiPoint
+
+
+from .control_model import ControlModel
 from .TimerMessageBox import CustomMessageBox
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -38,6 +42,16 @@ from .resources import *
 from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsVectorDataProvider, QgsField, QgsRectangle, \
     QgsMapLayerProxyModel, QgsProcessing
 
+import os
+from qgis.core import QgsVectorFileWriter, QgsVectorLayer, QgsProject, QgsProcessingFeedback, QgsApplication, QgsProcessingContext
+from qgis.PyQt.QtCore import QFileInfo
+
+import geopandas as gpd
+from shapely.wkt import loads
+from shapely.geometry import MultiPolygon
+from qgis.core import QgsFeature
+
+from matplotlib import pyplot as plt
 
 from osgeo import gdal, ogr
 
@@ -97,6 +111,7 @@ class MonitoringTools:
 
         self.pluginIsActive = False
         self.dockwidget = None
+
 
 
     # noinspection PyMethodMayBeStatic
@@ -238,9 +253,24 @@ class MonitoringTools:
     def appendDataToLabel(self, text_message, QLabel):
         text = QLabel.text()
         if text:
+            print(text_message)
             QLabel.setText(text + "\n" + text_message)
         else:
             QLabel.setText(text_message)
+
+
+    def clearPlainTextEditInfo(self):
+        self.dockwidget.plainTextEdit_info.setPlainText("")
+
+    def appendDataToPlainTextEdit(self, text_message, plain_text_edit):
+        current_text = plain_text_edit.toPlainText().strip()  # Get current text and strip whitespace
+        text_message = text_message.strip()  # Strip whitespace from the new message
+
+        # Combine current text and new message, handling newline characters
+        new_text = current_text + "\n" + text_message if current_text else text_message
+
+        # Set the updated text to the QPlainTextEdit
+        plain_text_edit.setPlainText(new_text)
 
 
     # Wskazanie bazy danych
@@ -289,7 +319,16 @@ class MonitoringTools:
             field_names = [field.name() for field in layer.fields()]
             self.dockwidget.comboBoxFieldsName.addItems(field_names)
 
+    def comboBoxYearSelectAction(self):
+        # Populate QComboBox with years from 2023 to 2032
+        year_list = list(range(2023, 2033))
+        self.dockwidget.comboBoxYear.addItems([str(year) for year in year_list])
 
+        # Set default year as the current year
+        current_year = datetime.now().year
+        if current_year in year_list:
+            index = year_list.index(current_year)
+            self.dockwidget.comboBoxYear.setCurrentIndex(index)
 
     # T_0101
     def generatePointLayer(self):
@@ -894,7 +933,7 @@ class MonitoringTools:
                 n2000 = feat[column_n2000]
 
                 stanowisko_value = area_id
-                rok_value = 2023
+                rok_value = 2024
 
                 forma_ochrony_przyrody_cd_value = n2000
 
@@ -967,28 +1006,172 @@ class MonitoringTools:
     # T_0107
     def round_geometry(self):
 
+
         layer = self.getLayer()
         crs = layer.crs()
         crs.createFromId(2180)
         layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        layer_path = layer.source()
 
-        result = processing.run("native:snappointstogrid",{'INPUT': layer, 'HSPACING': 0.01, 'VSPACING': 0.01, 'ZSPACING': 0, 'MSPACING': 0,'OUTPUT': 'memory:'})
-        repair_geom_user_layer = result['OUTPUT']
+        # Load the layer into a GeoDataFrame
+        gdf = gpd.read_file(layer_path)
 
-        if repair_geom_user_layer:
-            layer.startEditing()
+        # Function to round coordinates of a geometry
+        def round_coordinates(geometry, precision=2):
+            if geometry.geom_type == 'Point':
+                return Point(round(geometry.x, precision), round(geometry.y, precision))
+            elif geometry.geom_type == 'LineString' or geometry.geom_type == 'LinearRing':
+                return geometry.__class__(
+                    [Point(round(coord[0], precision), round(coord[1], precision)) for coord in geometry.coords])
+            elif geometry.geom_type == 'Polygon':
+                exterior = round_coordinates(geometry.exterior, precision)
+                interiors = [round_coordinates(interior, precision) for interior in geometry.interiors]
+                return Polygon(exterior, interiors)
+            elif geometry.geom_type == 'MultiPoint':
+                return MultiPoint([round_coordinates(point, precision) for point in geometry])
+            elif geometry.geom_type == 'MultiLineString':
+                return MultiLineString([round_coordinates(line, precision) for line in geometry])
+            elif geometry.geom_type == 'MultiPolygon':
+                return MultiPolygon([round_coordinates(polygon, precision) for polygon in geometry.geoms])
+            else:
+                raise ValueError(f"Unsupported geometry type: {geometry.geom_type}")
 
-            layer.deleteFeatures([f.id() for f in layer.getFeatures()])
+        # Round coordinates of each geometry in the GeoDataFrame
+        gdf['geometry'] = gdf['geometry'].apply(round_coordinates)
 
-            for feature in repair_geom_user_layer.getFeatures():
-                layer.addFeature(feature)
+        # Write the modified GeoDataFrame back to the same shapefile
+        gdf.to_file(layer_path, driver='ESRI Shapefile')
+        layer.reload()
 
-            layer.commitChanges()
+        # Refresh the QGIS layer to reflect the changes
+        layer.triggerRepaint()
 
-            print("Geometry repaired in the source layer successfully")
-            layer.reload()
-        else:
-            print("Error fixing geometries")
+    def snap_vertices_to_rezerwaty(self):
+        self.appendDataToPlainTextEdit("Starting snapping process...", self.dockwidget.plainTextEdit_info)
+
+        self.removeMapLayerByName('N2000_PL')
+        self.removeMapLayerByName('rezerwaty_PL')
+
+        # Input data - user layer
+        layer_to_snap = self.getLayer()
+        self.appendDataToPlainTextEdit("Got layer to snap: " + layer_to_snap.name(), self.dockwidget.plainTextEdit_info)
+
+        crs = layer_to_snap.crs()
+        crs.createFromId(2180)
+        layer_to_snap.setCrs(QgsCoordinateReferenceSystem(crs))
+
+        # Get snapping tolerance from the GUI input
+        try:
+            snap_tolerance = float(self.dockwidget.lineEdit_snap_tolerance.text().replace(",", "."))
+        except ValueError:
+            self.appendDataToPlainTextEdit("Invalid snapping tolerance value.", self.dockwidget.plainTextEdit_info)
+            return
+
+        self.appendDataToPlainTextEdit("Snapping tolerance: " + str(snap_tolerance), self.dockwidget.plainTextEdit_info)
+
+        # Input data rezerwaty layer
+        dirnameOfCatalog = self.resolveDir('rez_layer')
+        geopackage_path = dirnameOfCatalog + "/rezerwaty_PL.gpkg"
+        reserve_layer = self.iface.addVectorLayer(geopackage_path, "rezerwaty_PL", "ogr")
+        reserve_layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        if not reserve_layer:
+            self.appendDataToPlainTextEdit("Layer failed to load: " + geopackage_path, self.dockwidget.plainTextEdit_info)
+            return False
+        self.appendDataToPlainTextEdit("Loaded rezerwaty layer", self.dockwidget.plainTextEdit_info)
+
+        # Input data N2000 layer
+        dirnameOfCatalog = self.resolveDir('soo_layer')
+        geopackage_path = dirnameOfCatalog + "/N2000_PL.gpkg"
+        natura2000_layer = self.iface.addVectorLayer(geopackage_path, "N2000_PL", "ogr")
+        if not natura2000_layer:
+            self.appendDataToPlainTextEdit("Layer failed to load: " + geopackage_path, self.dockwidget.plainTextEdit_info)
+            return False
+        self.appendDataToPlainTextEdit("Loaded N2000 layer", self.dockwidget.plainTextEdit_info)
+
+        if not reserve_layer.isValid() or not natura2000_layer.isValid():
+            self.appendDataToPlainTextEdit("One of the layers is not valid.", self.dockwidget.plainTextEdit_info)
+            return
+
+        self.appendDataToPlainTextEdit("Snapping layers are valid", self.dockwidget.plainTextEdit_info)
+
+        # Define snapping options
+        snapping_config = QgsSnappingConfig()
+        snapping_config.setEnabled(True)
+        snapping_config.setTolerance(snap_tolerance)  # Set the snapping tolerance
+        snapping_config.setType(QgsSnappingConfig.VertexAndSegment)
+        snapping_config.setMode(QgsSnappingConfig.AdvancedConfiguration)
+
+        # Set snapping environment to the "rezerwaty_PL" and "N2000_PL.gpkg" layers with priorities
+        reserve_layer_settings = QgsSnappingConfig.IndividualLayerSettings(True, QgsSnappingConfig.VertexAndSegment,
+                                                                           snap_tolerance,
+                                                                           QgsTolerance.ProjectUnits)
+        natura2000_layer_settings = QgsSnappingConfig.IndividualLayerSettings(True,
+                                                                              QgsSnappingConfig.VertexAndSegment,
+                                                                              snap_tolerance,
+                                                                              QgsTolerance.ProjectUnits)
+
+        snapping_config.setIndividualLayerSettings(reserve_layer, reserve_layer_settings)
+        snapping_config.setIndividualLayerSettings(natura2000_layer, natura2000_layer_settings)
+
+        # Enable snapping
+        snapping_utils = self.iface.mapCanvas().snappingUtils()
+        snapping_utils.setConfig(snapping_config)
+        self.appendDataToPlainTextEdit("Snapping enabled", self.dockwidget.plainTextEdit_info)
+
+        # Initialize progress dialog
+        num_features = layer_to_snap.featureCount()
+        progress_dialog = QProgressDialog("Snapping vertices...", "Cancel", 0, num_features)
+        progress_dialog.setWindowTitle("Processing")
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
+        # Iterate through the features of the layer to snap
+        for i, feature in enumerate(layer_to_snap.getFeatures()):
+            if progress_dialog.wasCanceled():
+                self.appendDataToPlainTextEdit("Process canceled by user.", self.dockwidget.plainTextEdit_info)
+                break
+
+            self.appendDataToPlainTextEdit("Processing feature: " + str(feature.id()), self.dockwidget.plainTextEdit_info)
+            geom = feature.geometry()
+            if geom:
+                new_vertices = []
+                for vertex in geom.vertices():
+                    point_xy = QgsPointXY(vertex)
+                    snapped_match = None
+
+                    # Attempt to snap to the "rezerwaty" layer first
+                    snapped_match = snapping_utils.snapToMap(point_xy)
+                    if not snapped_match.isValid():
+                        # If snapping to "rezerwaty" is not successful, attempt to snap to an edge
+                        snapped_match = snapping_utils.snapToMap(point_xy)
+                    if not snapped_match.isValid():
+                        # If snapping to an edge in "rezerwaty" is not successful, attempt to snap to a vertex in "N2000_PL"
+                        snapped_match = snapping_utils.snapToMap(point_xy)
+                    if not snapped_match.isValid():
+                        # If snapping to a vertex in "N2000_PL" is not successful, attempt to snap to an edge
+                        snapped_match = snapping_utils.snapToMap(point_xy)
+
+                    if snapped_match.isValid():
+                        new_vertex = snapped_match.point()
+                    else:
+                        new_vertex = vertex
+                    new_vertices.append(QgsPointXY(new_vertex))  # Ensure QgsPointXY objects
+
+                # Update the geometry with snapped vertices
+                new_geom = QgsGeometry.fromPolygonXY([new_vertices])
+                layer_to_snap.dataProvider().changeGeometryValues({feature.id(): new_geom})
+
+            # Update progress dialog
+            progress_dialog.setValue(i + 1)
+
+        # Close progress dialog
+        progress_dialog.close()
+
+        # Disable snapping after snapping is complete
+        snapping_utils.setConfig(QgsSnappingConfig())
+
+        # Refresh the map canvas to make the changes visible
+        self.iface.mapCanvas().refreshAllLayers()
 
     # T_0108
     def prepare_structure(self):
@@ -1335,7 +1518,7 @@ class MonitoringTools:
 
 
                 stanowisko_value = area_id
-                rok_value = 2023
+                rok_value = 2024
 
                 forma_ochrony_przyrody_cd_value = None
 
@@ -1668,6 +1851,37 @@ class MonitoringTools:
         # Clear the selection
         dissolve_layer.removeSelection()
 
+        # Create a dictionary to store the smallest area for each unique NR_PLATU
+        smallest_areas = {}
+
+        # Iterate through features in the layer
+        for feature in dissolve_layer.getFeatures():
+            nr_platu = feature['NR_PLATU']
+            area = feature['AREA_HA']
+
+            # If NR_PLATU is not in the dictionary or the current area is smaller than the stored one
+            if nr_platu not in smallest_areas or area < smallest_areas[nr_platu][0]:
+                smallest_areas[nr_platu] = (area, feature.id())
+
+        # Select only the features with the smallest area for each NR_PLATU
+        selected_feature_ids = []
+        for nr_platu, (smallest_area, feature_id) in smallest_areas.items():
+            selected_feature_ids.append(feature_id)
+
+        # Deselect all features
+        dissolve_layer.removeSelection()
+
+        # Select the features with the smallest area
+        dissolve_layer.selectByIds(selected_feature_ids)
+
+        # Inverse the selection
+        dissolve_layer.invertSelection()
+
+        # Remove the selected features (i.e., the ones with larger areas)
+        dissolve_layer.startEditing()
+        dissolve_layer.deleteSelectedFeatures()
+        dissolve_layer.commitChanges()
+
         QgsProject.instance().addMapLayer(common_part_layer)
         QgsProject.instance().addMapLayer(difference_layer)
         QgsProject.instance().addMapLayer(dissolve_layer)
@@ -1853,10 +2067,41 @@ class MonitoringTools:
         # Clear the selection
         dissolve_layer.removeSelection()
 
+        # Create a dictionary to store the smallest area for each unique NR_PLATU
+        smallest_areas = {}
+
+        # Iterate through features in the layer
+        for feature in dissolve_layer.getFeatures():
+            nr_platu = feature['NR_PLATU']
+            area = feature['AREA_HA']
+
+            # If NR_PLATU is not in the dictionary or the current area is smaller than the stored one
+            if nr_platu not in smallest_areas or area < smallest_areas[nr_platu][0]:
+                smallest_areas[nr_platu] = (area, feature.id())
+
+        # Select only the features with the smallest area for each NR_PLATU
+        selected_feature_ids = []
+        for nr_platu, (smallest_area, feature_id) in smallest_areas.items():
+            selected_feature_ids.append(feature_id)
+
+        # Deselect all features
+        dissolve_layer.removeSelection()
+
+        # Select the features with the smallest area
+        dissolve_layer.selectByIds(selected_feature_ids)
+
+        # Inverse the selection
+        dissolve_layer.invertSelection()
+
+        # Remove the selected features (i.e., the ones with larger areas)
+        dissolve_layer.startEditing()
+        dissolve_layer.deleteSelectedFeatures()
+        dissolve_layer.commitChanges()
+
 
     # C_0105
-    def find_overlaps(self):
 
+    def find_overlaps(self):
         self.clear_info_labels()
 
         layer = self.getLayer()
@@ -1868,7 +2113,9 @@ class MonitoringTools:
         AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ID", QVariant.Int)
         AtributeTableManager.recalculateIDInColumnByLayerInstance(self, layer, "ID", 0)
 
-        result = processing.run("native:union", {'INPUT': layer,'OVERLAY': layer,'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:', 'GRID_SIZE': None})
+        result = processing.run("native:union",
+                                {'INPUT': layer, 'OVERLAY': layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
+                                 'GRID_SIZE': None})
         unionLayer = result['OUTPUT']
 
         unionLayer.selectByExpression('"ID" <> "ID_2"')
@@ -1883,8 +2130,54 @@ class MonitoringTools:
         QgsProject.instance().addMapLayer(unionLayer)
 
 
+
     def find_gaps(self):
 
+        # self.clear_info_labels()
+        #
+        # layer = self.getLayer()
+        # if not layer.isValid():
+        #     print(f"Layer '{layer}' is not valid.")
+        #     CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+        #     return False
+        #
+        # # Make extent of layer
+        # result = processing.run("native:polygonfromlayerextent", {'INPUT': layer, 'ROUND_TO': 0, 'OUTPUT': 'memory:'})
+        # extent_layer = result['OUTPUT']
+        #
+        # # make symetrical difference
+        # result = processing.run("native:symmetricaldifference", {'INPUT': layer, 'OVERLAY': extent_layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:', 'GRID_SIZE': None})
+        # symmetrical_difference_layer = result['OUTPUT']
+        #
+        # # Explode multipart
+        # result = processing.run("native:multiparttosingleparts", {'INPUT': symmetrical_difference_layer, 'OUTPUT': 'memory:'})
+        # difference_layer_exploaded = result['OUTPUT']
+        #
+        # # Calculate area
+        # AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "AREA_HA", QVariant.Double)
+        # layer_provider = difference_layer_exploaded.dataProvider()
+        # column_area = difference_layer_exploaded.fields().indexFromName("AREA_HA")
+        # for f in difference_layer_exploaded.getFeatures():
+        #     id = f.id()
+        #     geom = f.geometry()
+        #     area = geom.area() / 10000
+        #     area = round(area, 2)
+        #     attr_value_subarea = {column_area: area}
+        #     layer_provider.changeAttributeValues({id: attr_value_subarea})
+        # difference_layer_exploaded.commitChanges()
+        #
+        # # Remove the feature with the maximum 'AREA_HA'
+        # max_area_feature = max(difference_layer_exploaded.getFeatures(QgsFeatureRequest().setFlags(QgsFeatureRequest.NoGeometry)),key=lambda f: f['AREA_HA'])
+        # difference_layer_exploaded.startEditing()
+        # difference_layer_exploaded.deleteFeature(max_area_feature.id())
+        # difference_layer_exploaded.commitChanges()
+        #
+        # AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "ID", QVariant.Int)
+        # AtributeTableManager.recalculateIDInColumnByLayerInstance(self, difference_layer_exploaded, "ID", 0)
+        # AtributeTableManager.removeEachColumnExeptDeclaredByLayerInstance(self, difference_layer_exploaded, ["ID",'AREA_HA'] )
+        #
+        # difference_layer_exploaded.setName('dziury_gaps')
+        # QgsProject.instance().addMapLayer(difference_layer_exploaded)
         self.clear_info_labels()
 
         layer = self.getLayer()
@@ -1893,526 +2186,450 @@ class MonitoringTools:
             CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
             return False
 
-        # Make extent of layer
-        result = processing.run("native:polygonfromlayerextent", {'INPUT': layer, 'ROUND_TO': 0, 'OUTPUT': 'memory:'})
-        extent_layer = result['OUTPUT']
-
-        # make symetrical difference
-        result = processing.run("native:symmetricaldifference", {'INPUT': layer, 'OVERLAY': extent_layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:', 'GRID_SIZE': None})
-        symmetrical_difference_layer = result['OUTPUT']
-
-        # Explode multipart
-        result = processing.run("native:multiparttosingleparts", {'INPUT': symmetrical_difference_layer, 'OUTPUT': 'memory:'})
-        difference_layer_exploaded = result['OUTPUT']
-
-        # Calculate area
-        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "AREA_HA", QVariant.Double)
-        layer_provider = difference_layer_exploaded.dataProvider()
-        column_area = difference_layer_exploaded.fields().indexFromName("AREA_HA")
-        for f in difference_layer_exploaded.getFeatures():
-            id = f.id()
-            geom = f.geometry()
-            area = geom.area() / 10000
-            area = round(area, 2)
-            attr_value_subarea = {column_area: area}
-            layer_provider.changeAttributeValues({id: attr_value_subarea})
-        difference_layer_exploaded.commitChanges()
-
-        # Remove the feature with the maximum 'AREA_HA'
-        max_area_feature = max(difference_layer_exploaded.getFeatures(QgsFeatureRequest().setFlags(QgsFeatureRequest.NoGeometry)),key=lambda f: f['AREA_HA'])
-        difference_layer_exploaded.startEditing()
-        difference_layer_exploaded.deleteFeature(max_area_feature.id())
-        difference_layer_exploaded.commitChanges()
-
-        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "ID", QVariant.Int)
-        AtributeTableManager.recalculateIDInColumnByLayerInstance(self, difference_layer_exploaded, "ID", 0)
-        AtributeTableManager.removeEachColumnExeptDeclaredByLayerInstance(self, difference_layer_exploaded, ["ID",'AREA_HA'] )
-
-        difference_layer_exploaded.setName('dziury_gaps')
-        QgsProject.instance().addMapLayer(difference_layer_exploaded)
-
-
-    # C_0201
-    def numeration_validating_map_dBase(self):
-
-        # Clear info labels
-        self.clear_info_labels()
-
-        # Dbase address
-        d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
-        if not (str(d_base)):
-            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
-            return False
-
-        # Declare connections
-        conn = sqlite3.connect(d_base)
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT stanowisko_nr FROM stanowisko_rok;")
-        rows = cursor.fetchall()
-
-        ara_list_from_dBase = []
-        invalid_numbers_dBase = []
-
-        for row in rows:
-            ara_list_from_dBase.append(row[0])
-
-        # Check corectness
-        for data_dbase in  ara_list_from_dBase:
-            if not self.is_numeric_and_length(str(data_dbase)):
-                invalid_numbers_dBase.append(data_dbase)
-        if len(invalid_numbers_dBase) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Błędnie zanumerowane powierzchnie w bazie danych:", self.dockwidget.label_warning)
-            for data_dbase in invalid_numbers_dBase:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Błędnie zanumerowane powierzchnie w bazie danych", ["ID_STANOWISKA"],invalid_numbers_dBase, "monitoring_gis_tools_raporty_kontroli", "0201_wykaz_blednie_zanumerowanych_powierzchni_baza.csv")
-            self.dockwidget.pushButtonNumerationValidatingDBase.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie w bazie zanumerowano poprawnie.", self.dockwidget.label_info)
-            self.generate_csv_reports("Błędnie zanumerowane powierzchnie w bazie - brak", ["ID_STANOWISKA"],invalid_numbers_dBase, "monitoring_gis_tools_raporty_kontroli", "0201_wykaz_blednie_zanumerowanych_powierzchni_baza_OK.csv")
-            self.dockwidget.pushButtonNumerationValidatingDBase.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0203 OK
-    def control_coordinates(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr FROM stanowisko INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr WHERE COALESCE(cast(x as text), '') in ('','0.0','0') OR COALESCE(cast(y as text), '') in ('','0.0','0');")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Nieobliczone współrzędne w wybranych płatach:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Nieobliczone współrzędne w wybranych płatach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0203_wykaz_brak_wspolrzednych_baza.csv")
-            self.dockwidget.pushButton_control_coordinates.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Nieobliczone współrzędne w wybranych płatach - brak", self.dockwidget.label_info)
-            self.generate_csv_reports("Nieobliczone współrzędne w wybranych płatach - brak", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0203_wykaz_brak_wspolrzednych_baza_OK.csv")
-            self.dockwidget.pushButton_control_coordinates.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-
-
-
-
-    # C_0204
-    def missing_gen_assasement(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko.stanowisko_nr "
-                                         "FROM stanowisko "
-                                         "INNER join stanowisko_rok on stanowisko.stanowisko_nr = stanowisko_rok.stanowisko_nr "
-                                         "INNER join sl_siedlisko on stanowisko.siedlisko_cd = sl_siedlisko.siedlisko_cd "
-                                         "WHERE COALESCE(stanowisko.siedlisko_cd, '') NOT IN ('', 'brak') "
-                                         "AND coalesce(stanowisko_rok.ocena_cd,'') not in (select ocena_cd from sl_ocena)"
-                                         "AND sl_siedlisko.projekt_fl = 1")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak oceny ogólnej:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak oceny ogólnej w wybranych płatach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0204_wykaz_brak_oceny_ogolnej.csv")
-            self.dockwidget.pushButton_control_missing_gen_assasement.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0204_wykaz_brak_oceny_ogolnej_OK.csv")
-            self.dockwidget.pushButton_control_missing_gen_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0205 OK
-    def missing_par_assasement(self):
-
-        # list = self.getListOfAreaByQuery("SELECT subquery.stanowisko_nr, subquery.rok, subquery.SIEDL,subquery.PS,subquery.SF,subquery.PO "
-        #                                  "FROM (SELECT srp.stanowisko_nr, "
-        #                                  "srp.rok, "
-        #                                  "stanowisko.siedlisko_cd AS SIEDL, "
-        #                                  "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'PS' OR srp.ocena_cd = '') AS PS, "
-        #                                  "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'SF' OR srp.ocena_cd = '') AS SF, "
-        #                                  "MAX(srp.ocena_cd) FILTER(WHERE srp.parametr_cd = 'PO' OR srp.ocena_cd = '') AS PO "
-        #                                  "FROM stanowisko_rok_parametr srp INNER JOIN stanowisko ON srp.stanowisko_nr = stanowisko.stanowisko_nr "
-        #                                  "WHERE stanowisko.siedlisko_cd NOT IN ('', 'brak') "
-        #                                  "GROUP BY srp.stanowisko_nr, srp.rok, stanowisko.siedlisko_cd) AS subquery "
-        #                                  "WHERE COALESCE(PS, '') NOT IN ('FV', 'U1', 'U2', 'XX') OR "
-        #                                  "COALESCE(SF, '') NOT IN ('FV', 'U1', 'U2', 'XX') OR "
-        #                                  "COALESCE(PO, '') NOT IN ('FV', 'U1', 'U2', 'XX')")
-
-        list = self.getListOfAreaByQuery("with t as "
-                                         "(select stanowisko_nr,parametr_cd from stanowisko s "
-                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
-                                         "join sl_parametr on true where projekt_fl) "
-                                         "select distinct t.stanowisko_nr "
-                                         "from t left join stanowisko_rok_parametr srp on srp.stanowisko_nr=t.stanowisko_nr and srp.parametr_cd=t.parametr_cd "
-                                         "where coalesce(srp.ocena_cd,'') not in (select ocena_cd from sl_ocena);")
-
-
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak oceny parametrów:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak oceny parametrów w wybranych płatach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0205_wykaz_brak_oceny_parametrow.csv")
-            self.dockwidget.pushButton_control_missing_par_assasement.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę parametrów", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę parametrów", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0205_wykaz_brak_oceny_parametrow_OK.csv")
-            self.dockwidget.pushButton_control_missing_par_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0206 OK
-    def missing_indicators_assasement(self):
-
-        list = self.getListOfAreaByQuery("with t as "
-                                         "(select stanowisko_nr,ssw.wskaznik_nr "
-                                         "from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
-                                         "join sl_siedlisko_wskaznik ssw on ss.siedlisko_cd = ssw.siedlisko_cd "
-                                         "where projekt_fl and ssw.wskaznik_rodzaj_cd = 'O') "
-                                         "select distinct t.stanowisko_nr "
-                                         "from t left join stanowisko_rok_wskaznik srw on srw.stanowisko_nr=t.stanowisko_nr and srw.wskaznik_nr=t.wskaznik_nr "
-                                         "where coalesce(srw.ocena_cd,'') not in (select ocena_cd from sl_ocena);")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak oceny wskaźników w wybranych płatach:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak oceny wskaźników w wybranych płatach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0206_wykaz_brak_oceny_wskaznikow.csv")
-            self.dockwidget.pushButton_control_missing_indicators_assasement.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę wskaźników", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę wskaźników", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0206_wykaz_brak_oceny_wskaznikow_OK.csv")
-            self.dockwidget.pushButton_control_missing_indicators_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0207 OK
-    def missing_gen_assasement_desc(self):
-
-        list = self.getListOfAreaByQuery("select distinct sr.stanowisko_nr "
-                                         "from stanowisko s "
-                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr "
-                                         "where projekt_fl "
-                                         "and coalesce(sr.komentarz_ocena_stanu_ochrony,'') in ('',' ');")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak oceny opisowej (ocena ogólna) w wybranych płatach:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak oceny opisowej (ocena ogólna) w wybranych płatach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0207_wykaz_brak_oceny_ogolnej_opisowej.csv")
-            self.dockwidget.pushButton_control_missing_gen_assasement_desc.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę opisową", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę opisową", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0207_wykaz_brak_oceny_ogolnej_opisowej_OK.csv")
-            self.dockwidget.pushButton_control_missing_gen_assasement_desc.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0208 OK
-    def missing_par_assasement_desc(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
-                                         "from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
-                                         "LEFT JOIN stanowisko_rok_parametr srp on s.stanowisko_nr = srp.stanowisko_nr "
-                                         "WHERE ss.projekt_fl AND "
-                                         "coalesce(srp.komentarz,'') in ('',' ','⁶','*','/','6','I','7','&','l','y','o','8','w','9','-','.','v','i','(','k','. ','pl','90','11','|. ','   ','see','''','''''',' .',' ');")
-
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak oceny opisowej parametrów:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak oceny opisowej parametrów w wybranych płatach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0208_wykaz_brak_oceny_opisowej_parametrow.csv")
-            self.dockwidget.pushButton_control_missing_par_assasement_desc.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę opisową parametrów", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę opisową parametrów", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0208_wykaz_brak_oceny_opisowej_parametrow_OK.csv")
-            self.dockwidget.pushButton_control_missing_par_assasement_desc.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0209 OK
-    def missing_indicators_assasement_desc(self):
-
-        # list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok_wskaznik srw on s.stanowisko_nr = srw.stanowisko_nr join sl_siedlisko_wskaznik ssw on s.siedlisko_cd=ssw.siedlisko_cd WHERE ss.projekt_fl and ssw.wskaznik_rodzaj_cd='O' AND coalesce(srw.wartosc,'') in ('',' ','''','''''','|','/','.','-',',','~','!','p','l','po','ww','''-','Bra','jw.','...',' ',' ');")
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd = ss.siedlisko_cd JOIN stanowisko_rok_wskaznik srw on s.stanowisko_nr = srw.stanowisko_nr join sl_siedlisko_wskaznik ssw on s.siedlisko_cd = ssw.siedlisko_cd and srw.wskaznik_nr = ssw.wskaznik_nr JOIN sl_wskaznik sw on srw.wskaznik_nr = sw.wskaznik_nr WHERE ss.projekt_fl and ssw.wskaznik_rodzaj_cd = 'O' AND coalesce(srw.wartosc, '') in ('', ' ','''','''''','|','/','.','-',',','~','!','p','l','po','ww',''' - ',' Bra','jw.','...',' ',' ');")
-
-
-
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak oceny opisowej wskaźników w wybranych płatach:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak oceny opisowej wskaźników w wybranych płatach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0209_wykaz_brak_oceny_opisowej_wskaznikow.csv")
-            self.dockwidget.pushButton_control_missing_indicators_assasement_desc.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę opisową wskaźników", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z oznaczeniem siedliska posiadają ocenę opisową wskaźników", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0209_wykaz_brak_oceny_opisowej_wskaznikow_OK.csv")
-            self.dockwidget.pushButton_control_missing_indicators_assasement_desc.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0210 OK, not in use
-    def missing_gen_assasement_exist_desc_assasement(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd left JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr WHERE ss.projekt_fl AND (coalesce(sr.ocena_cd,'') not in (select ocena_cd from sl_ocena) or coalesce(sr.komentarz_ocena_stanu_ochrony,'') in ('',' '));")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak oceny ogólnej, istniejąca ocena opisowa:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak oceny ogólnej, istniejąca ocena opisowa", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0210_wykaz_brak_oceny_ogolnej_istniejaca_ocena_opisowa.csv")
-            self.dockwidget.pushButton_control_missing_gen_assasement_exist_desc_assasement.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z oceną opisową posiadają ocenę ogólną", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z oceną opisową posiadają ocenę ogólną", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0210_wykaz_brak_oceny_ogolnej_istniejaca_ocena_opisowa_OK.csv")
-            self.dockwidget.pushButton_control_missing_gen_assasement_exist_desc_assasement.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0213 OK
-    def missing_site_description(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr WHERE ss.projekt_fl AND length(coalesce(sr.opis_siedliska,''))<9")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak opisu siedliska na stanowisku:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak opisu siedliska na stanowisku", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0213_wykaz_brak_opisu_siedliska_na_stanowisku.csv")
-            self.dockwidget.pushButton_control_missing_site_description.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z określonym kodem siedliska posiadają opis siedliska na stanowisku", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z określonym kodem siedliska posiadają opis siedliska na stanowisku", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0213_wykaz_brak_opisu_siedliska_na_stanowisku_OK.csv")
-            self.dockwidget.pushButton_control_missing_site_description.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0214 OK
-    def missing_natural_values(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s "
-                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
-                                         "JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
-                                         "WHERE ss.projekt_fl AND length(coalesce(sr.wartosci_przyrodnicze,''))<4 or sr.wartosci_przyrodnicze='''<.'")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak wprowadznonych wartości przyrodniczych:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak wprowadznonych wartości przyrodniczych", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0214_wykaz_brak_wartosci_przyrodniczych.csv")
-            self.dockwidget.pushButton_control_missing_natural_values.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie z określonym kodem siedliska posiadają opis wartości przyrodniczych", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie z określonym kodem siedliska posiadają opis wartości przyrodniczych", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0214_wykaz_brak_wartosci_przyrodniczych_OK.csv")
-            self.dockwidget.pushButton_control_missing_natural_values.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0215 OK
-    def missing_date_information(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr FROM stanowisko s left join stanowisko_rok_datakontroli srd on s.stanowisko_nr = srd.stanowisko_nr WHERE coalesce(srd.data_kontroli,'')='';")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak informacji o dacie kontroli:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak informacji o dacie kontroli", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0215_wykaz_brak_informacji_o_dacie_kontroli.csv")
-            self.dockwidget.pushButton_missing_date_information.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie posiadają informację o dacie kontroli", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie posiadają informację o dacie kontroli", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0215_wykaz_brak_informacji_o_dacie_kontroli_OK.csv")
-            self.dockwidget.pushButton_missing_date_information.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0216 OK
-    def missing_availability_information(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
-                                         "FROM stanowisko s join stanowisko_rok_datakontroli srd on s.stanowisko_nr = srd.stanowisko_nr "
-                                         "WHERE coalesce(cast(srd.dostepnosc_cd as text),'') in ('','0') or (cast(coalesce(dostepnosc_cd,'') as text) in ('niedostępna z przyczyn abiotycznych','niedostępna z przyczyn antropogenicznych','niedostępna z przyczyn biotycznych') and coalesce(opis,'') = '');")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak informacji o dostępności powierzchni:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak informacji o dostępności powierzchni", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0216_wykaz_brak_informacji_o_dostępności.csv")
-            self.dockwidget.pushButton_missing_availability_information.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie posiadają informację o dostępności", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie posiadają informację o dostępności", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0216_wykaz_brak_informacji_o_dostępności_OK.csv")
-            self.dockwidget.pushButton_missing_availability_information.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0217 OK
-    def missing_impacts(self):
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s "
-                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
-                                         "JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
-                                         "LEFT join stanowisko_rok_oddzialywanie sro on sr.stanowisko_nr = sro.stanowisko_nr and sr.rok = sro.rok "
-                                         "WHERE ss.projekt_fl AND coalesce(sro.oddzialywanie_cd,'') not in (select oddzialywanie_cd from sl_oddzialywanie);")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak informacji o oddziaływaniach:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak informacji o oddziaływaniach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0217_wykaz_brak_informacji_o_oddzialywaniach.csv")
-            self.dockwidget.pushButton_missing_impacts.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie posiadają informację o oddziaływaniach", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie posiadają informację o oddziaływaniach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0217_wykaz_brak_informacji_o_oddzialywaniach_OK.csv")
-            self.dockwidget.pushButton_missing_impacts.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0218 OK
-    def missing_threats(self):
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr from stanowisko s JOIN sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd JOIN stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr LEFT join stanowisko_rok_zagrozenie srz on sr.stanowisko_nr = srz.stanowisko_nr and sr.rok = srz.rok WHERE ss.projekt_fl AND coalesce(srz.oddzialywanie_cd,'') not in (select oddzialywanie_cd from sl_oddzialywanie);")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak informacji o zagrożeniach:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak informacji o zagrożeniach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0218_wykaz_brak_informacji_o_zagrozeniach.csv")
-            self.dockwidget.pushButton_missing_threats.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie posiadają informację o zagrożeniach", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie posiadają informację o zagrożeniach", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0218_wykaz_brak_informacji_o_zagrozeniach_OK.csv")
-            self.dockwidget.pushButton_missing_threats.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0219 OK
-    def missing_protectiv_actions(self):
-
-        # list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join stanowisko_rok_dzialanieochronne srd on sr.stanowisko_nr=srd.stanowisko_nr and sr.rok=srd.rok where ss.projekt_fl and (coalesce(srd.dzialanie_cd,'') not in (select dzialanie_cd from sl_dzialanie_ochronne) or coalesce(srd.dzialanie_typ_cd,'') not in (select dzialanie_typ_cd from sl_dzialanie_ochronne_typ) or (srd.powierzchnia=0 and not cala_pow_fl) or (length(coalesce(srd.opis,'')<4) and length(coalesce(srd.dodatkowe_uwarunkowania,'')<4)));")
-
-        list = self.getListOfAreaByQuery("select distinct srd.stanowisko_nr from stanowisko s "
-                                         "join sl_siedlisko ss on s.siedlisko_cd = ss.siedlisko_cd "
-                                         "join stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
-                                         "join stanowisko_rok_dzialanieochronne srd on sr.stanowisko_nr = srd.stanowisko_nr and sr.rok = srd.rok "
-                                         "where ss.projekt_fl "
-                                         "and (coalesce(srd.dzialanie_cd, '') not in (select dzialanie_cd from sl_dzialanie_ochronne) or coalesce(trim(srd.dzialanie_typ_cd), '') not in (select dzialanie_typ_nm from sl_dzialanie_ochronne_typ sdot) or (srd.powierzchnia=0 and not cala_pow_fl) or (length(coalesce(srd.opis, '')) < 4));")
-
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Brak informacji (niepełne informacje) o działaniach ochronnych:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Brak informacji (niepełne informacje) o działaniach ochronnych:", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0219_wykaz_brak_informacji_o_dzialaniach_ochronnych.csv")
-            self.dockwidget.pushButton_missing_protectiv_actions.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie posiadają pełną informację o działaniach ochronnych", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie posiadają pełną informację o działaniach ochronnych", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0219_wykaz_brak_informacji_o_dzialaniach_ochronnych_OK.csv")
-            self.dockwidget.pushButton_missing_protectiv_actions.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_02220
-    def missing_elements_in_photo_doc(self):
-        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr join stanowisko_rok_foto srf on sr.stanowisko_nr=srf.stanowisko_nr and sr.rok=srf.rok left join (select stanowisko_nr,rok,count(*) cnt from stanowisko_rok_foto group by 1,2) t on sr.stanowisko_nr=t.stanowisko_nr and sr.rok=t.rok where ss.projekt_fl and (srf.stanowisko_nr||'_'||srf.foto_nr||coalesce('_'||case when srf.sufix='' then null else srf.sufix end,'')||'.jpg' != srf.nazwa or not coalesce(cast(replace(srf.x,',','.') as float),0) between 49.002046518 and 54.836416667 or not coalesce(cast(replace(srf.y,',','.') as float),0) between 14.12288486 and 24.145783075 or not coalesce(cast(replace(srf.z,',','.') as float),-100) between -2 and 2499 or coalesce(cnt,0)<2);")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Braki w dokumentacji fotograficznej:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Braki w dokumentacji fotograficznej:", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0220_wykaz_braki_w_dokumentacji_fotograficznej.csv")
-            self.dockwidget.pushButton_missingelements_in_photo_documentation.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie powierzchnie posiadają pełną dokumentację fotograficzną", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie powierzchnie posiadają pełną dokumentację fotograficzną", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0220_wykaz_braki_w_dokumentacji_fotograficznej_OK.csv")
-            self.dockwidget.pushButton_missingelements_in_photo_documentation.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-
-    # C_0221
-    def compatibility_validation(self):
-        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s left "
-                                         "join sl_siedlisko s1 on s.siedlisko_plan_cd=s1.siedlisko_cd left join sl_siedlisko s2 on s.siedlisko_lp_cd  =s2.siedlisko_cd left join sl_siedlisko s3 on s.siedlisko_cd=s3.siedlisko_cd "
-                                         "where coalesce(s.zgodnosc_cd,0) in (0,'') or not((s.siedlisko_plan_cd=s.siedlisko_cd and zgodnosc_cd=1) or (coalesce(s1.projekt_fl,0)=0 and coalesce(s2.projekt_fl,0)=0 and s3.projekt_fl=1 and zgodnosc_cd in (2,8)) or (s.siedlisko_plan_cd!=s.siedlisko_cd and coalesce(s.siedlisko_plan_cd,'') not in ('','brak') "
-                                         "and s3.projekt_fl and zgodnosc_cd=3) or (s1.projekt_fl=1 and s3.projekt_fl=0 and s.zgodnosc_cd=4) or (coalesce(s.siedlisko_plan_cd,'') not in ('','brak') and s.siedlisko_cd='brak' and zgodnosc_cd in (5,6,7)) or ((((s.siedlisko_lp_cd=s.siedlisko_cd or s3.projekt_fl)and coalesce(s1.projekt_fl,0)=0) or (coalesce(s.siedlisko_plan_cd,'') in ('','brak') and coalesce(s.siedlisko_lp_cd,'') in ('','brak') and s3.projekt_fl)) and s.zgodnosc_cd=8) or (((s2.projekt_fl=1 and coalesce(s3.projekt_fl,0)=0) or (s.siedlisko_plan_cd='brak' or s.siedlisko_lp_cd='brak' or s.siedlisko_cd='brak')) and s.zgodnosc_cd=9));")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel(f"Błędne oznaczenia (brak oznaczenia) zgodności z dokumentacją w {str(len(list))} przypadkach!", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Błędne oznaczenia (brak oznaczenia) zgodności z dokumentacją:", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0221_wykaz_stanowisk_z_bledna_ocena_zgodnosci.csv")
-            self.dockwidget.pushButton_compatibility_validation.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Ocena zgodności z dokumentacją (w zakresie kontroli) nie wykazała błędów", self.dockwidget.label_info)
-            self.generate_csv_reports("Ocena zgodności z dokumentacją (w zakresie kontroli) nie wykazała błędów", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0221_wykaz_stanowisk_z_bledna_ocena_zgodnosci_OK.csv")
-            self.dockwidget.pushButton_compatibility_validation.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-
-    # C_0222 OK
-    def missing_resigantion_exist_resignation_cause(self):
-
-        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr "
-                                         "from stanowisko s "
-                                         "join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr "
-                                         "join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd "
-                                         "where ss.projekt_fl and not rezygnacja_fl and coalesce(uzasadnienie_rezygnacji,'') != ''")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Stanowiska z uzasadnieniem rezygnacji (odstąpienia), bez zaznaczenia odstąpienia:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Stanowiska z uzasadnieniem rezygnacji (odstąpienia), bez zaznaczenia odstąpienia", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0222_wykaz_stanowisk_z_uzasadnieniem_rezygnacji_bez_zaznaczenia_rezygnacji.csv")
-            self.dockwidget.pushButton_missing_resigantion_exist_resignation_cause.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie stanowiska z opisem rezygnacji posiadają oznaczenie rezygnacji", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie stanowiska z opisem rezygnacji posiadają oznaczenie rezygnacji", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0222_wykaz_stanowisk_z_uzasadnieniem_rezygnacji_bez_zaznaczenia_rezygnacji_OK.csv")
-            self.dockwidget.pushButton_missing_resigantion_exist_resignation_cause.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-
-    # C_0223 OK
-    def missing_resigantion_cause(self):
-        list = self.getListOfAreaByQuery("select distinct s.stanowisko_nr from stanowisko s join stanowisko_rok sr on s.stanowisko_nr=sr.stanowisko_nr where rezygnacja_fl and length(coalesce(uzasadnienie_rezygnacji,''))<4;")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Stanowiska bez uzasadnienia rezygnacji:", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Stanowiska bez uzasadnienia rezygnacji", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0223_wykaz_stanowiska_bez_uzasadnienia_rezygnacji.csv")
-            self.dockwidget.pushButton_missing_resigantion_cause.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Wszystkie stanowiska, w których odstąpiono od monitoringu posiadają uzasadnie rezygnacji (odstąpnia)", self.dockwidget.label_info)
-            self.generate_csv_reports("Wszystkie stanowiska, w których odstąpiono od monitoringu posiadają uzasadnie rezygnacji (odstąpnia)", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0223_wykaz_stanowiska_bez_uzasadnienia_rezygnacji_OK.csv")
-            self.dockwidget.pushButton_missing_resigantion_cause.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-    # C_0224
-    def control_coordinates_extend_pl(self):
-
-        list = self.getListOfAreaByQuery("SELECT DISTINCT s.stanowisko_nr "
-                                         "FROM stanowisko s join sl_siedlisko ss on s.siedlisko_cd=ss.siedlisko_cd join stanowisko_rok sr on s.stanowisko_nr = sr.stanowisko_nr "
-                                         "WHERE projekt_fl "
-                                         "and (not coalesce(cast(replace(x,',','.') as float),0) between 49.002046518 "
-                                         "and 54.836416667 or not coalesce(cast(replace(y,',','.') as float),0) between 14.12288486 "
-                                         "and 24.145783075 or not coalesce(cast(replace(z,',','.') as float),-100) between -2 and 2499 );")
-
-        if len(list) > 0:
-            self.appendDataToLabel("", self.dockwidget.label_warning)
-            self.appendDataToLabel("Współrzędne poza teoretycznym zasięgiem projektu (zasięg PL, -3<h<2500):", self.dockwidget.label_warning)
-            for data_dbase in list:
-                self.appendDataToLabel(str(data_dbase), self.dockwidget.label_warning)
-            self.generate_csv_reports("Współrzędne poza teoretycznym zasięgiem projektu (zasięg PL, -3<h<2500):", ["ID_STANOWISKA"], list, "monitoring_gis_tools_raporty_kontroli", "0224_wykaz_wspolrzedne_poza_PL.csv")
-            self.dockwidget.pushButton_invalid_coordinates.setStyleSheet('QPushButton {background-color: #ff0000}')
-        else:
-            self.appendDataToLabel("Prawdopodobnie wszystkie współrzędne znajdują się w zasięgu opracowania", self.dockwidget.label_info)
-            self.generate_csv_reports("Prawdopodobnie wszystkie współrzędne znajdują się w zasięgu opracowania", ["ID_STANOWISKA"],list, "monitoring_gis_tools_raporty_kontroli", "0224_wykaz_wspolrzedne_poza_PL_OK.csv")
-            self.dockwidget.pushButton_invalid_coordinates.setStyleSheet('QPushButton {background-color: #3cb371}')
-
+        # Run the "native:extractbylocation" algorithm to select features that have gaps between them
+        result = processing.run("native:extractbylocation",
+                                {'INPUT': layer, 'PREDICATE': [6], 'INTERSECT': layer, 'OUTPUT': 'memory:'})
+        gapLayer = result['OUTPUT']
+
+        gapLayer.setName('inter_feature_gaps')
+        QgsProject.instance().addMapLayer(gapLayer)
+
+        # self.clear_info_labels()
+        #
+        # layer = self.getLayer()
+        # if not layer.isValid():
+        #     print(f"Layer '{layer}' is not valid.")
+        #     CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+        #     return False
+        #
+        # result = processing.run("qgis:checkvalidity",
+        #                         {'INPUT_LAYER': layer,
+        #                          'METHOD': 2, 'IGNORE_RING_SELF_INTERSECTION': False, 'VALID_OUTPUT': 'memory:',
+        #                          'INVALID_OUTPUT': 'memory:', 'ERROR_OUTPUT': 'memory:'})
+        #
+        # valid_layer = result['VALID_OUTPUT']
+        # invalid_layer = result['INVALID_OUTPUT']
+        # error_layer = result['ERROR_OUTPUT']
+        #
+        # valid_layer.setName('Warstwa z poprawnymi obiektami')
+        # QgsProject.instance().addMapLayer(valid_layer)
+        # invalid_layer.setName('Warstwa z niepoprawnymi obiektami')
+        # QgsProject.instance().addMapLayer(invalid_layer)
+        # error_layer.setName('Blędy')
+        # QgsProject.instance().addMapLayer(error_layer)
+
+
+    # Metody kontroli -dodawane po opracowaniu SQL dla WebMonitoring
+
+    # Kontrole danych ogólnych
+    # 10001
+    def run_control_10001(self):
+        self.get_error_result_by_error_code(10001)
+
+    # 10002
+    def run_control_10002(self):
+        self.get_error_result_by_error_code(10002)
+
+    # 10005
+    def run_control_10005(self):
+        self.get_error_result_by_error_code(10005)
+
+    # 10010
+    def run_control_10010(self):
+        self.get_error_result_by_error_code(10010)
+
+    # 10020
+    def run_control_10020(self):
+        self.get_error_result_by_error_code(10020)
+
+    # 10100
+    def run_control_10100(self):
+        self.get_error_result_by_error_code(10100)
+
+    # 10101
+    def run_control_10101(self):
+        self.get_error_result_by_error_code(10101)
+
+    # 10102
+    def run_control_10102(self):
+        self.get_error_result_by_error_code(10102)
+
+    # 10200
+    def run_control_10200(self):
+        self.get_error_result_by_error_code(10200)
+
+    # 10201
+    def run_control_10201(self):
+        self.get_error_result_by_error_code(10201)
+
+    # 10210
+    def run_control_10210(self):
+        self.get_error_result_by_error_code(10210)
+
+    # 10211
+    def run_control_10211(self):
+        self.get_error_result_by_error_code(10211)
+
+    # 10220
+    def run_control_10220(self):
+        self.get_error_result_by_error_code(10220)
+
+    # 10221
+    def run_control_10221(self):
+        self.get_error_result_by_error_code(10221)
+
+    # 10230
+    def run_control_10230(self):
+        self.get_error_result_by_error_code(10230)
+
+    # 10231
+    def run_control_10231(self):
+        self.get_error_result_by_error_code(10231)
+
+    # 10240
+    def run_control_10240(self):
+        self.get_error_result_by_error_code(10240)
+
+    # 10250
+    def run_control_10250(self):
+        self.get_error_result_by_error_code(10250)
+
+    # 10251
+    def run_control_10251(self):
+        self.get_error_result_by_error_code(10251)
+
+    # 10252
+    def run_control_10252(self):
+        self.get_error_result_by_error_code(10252)
+
+    # 10260
+    def run_control_10260(self):
+        self.get_error_result_by_error_code(10260)
+
+    # 10270
+    def run_control_10270(self):
+        self.get_error_result_by_error_code(10270)
+
+    # 10271
+    def run_control_10271(self):
+        self.get_error_result_by_error_code(10271)
+
+    # 10280
+    def run_control_10280(self):
+        self.get_error_result_by_error_code(10280)
+
+    # 10281
+    def run_control_10281(self):
+        self.get_error_result_by_error_code(10281)
+
+    # 10282
+    def run_control_10282(self):
+        self.get_error_result_by_error_code(10282)
+
+    # 10290
+    def run_control_10290(self):
+        self.get_error_result_by_error_code(10290)
+
+    # 10300
+    def run_control_10300(self):
+        self.get_error_result_by_error_code(10300)
+
+    def complex_control_general_data(self):
+        self.clearPlainTextEditInfo()
+        # 10001
+        self.run_control_10001()
+        # 10002
+        self.run_control_10002()
+        # 10005
+        self.run_control_10005()
+        # 10010
+        self.run_control_10010()
+        # 10020
+        self.run_control_10020()
+        # 10100
+        self.run_control_10100()
+        # 10101
+        self.run_control_10101()
+        # 10102
+        self.run_control_10102()
+        # 10200
+        self.run_control_10200()
+        # 10201
+        self.run_control_10201()
+        # 10210
+        self.run_control_10210()
+        # 10211
+        self.run_control_10211()
+        # 10220
+        self.run_control_10220()
+        # 10221
+        self.run_control_10221()
+        # 10230
+        self.run_control_10230()
+        # 10231
+        self.run_control_10231()
+        # 10240
+        self.run_control_10240()
+        # 10250
+        self.run_control_10250()
+        # 10251
+        self.run_control_10251()
+        # 10252
+        self.run_control_10252()
+        # 10260
+        self.run_control_10260()
+        # 10270
+        self.run_control_10270()
+        # 10271
+        self.run_control_10271()
+        # 10280
+        self.run_control_10280()
+        # 10281
+        self.run_control_10281()
+        # 10282
+        self.run_control_10282()
+        # 10290
+        self.run_control_10290()
+        # 10300
+        self.run_control_10300()
+        self.dockwidget.plainTextEdit_info.setPlainText("Wyniki kontroli zostały zapisane w lokalizacji bazy danych")
+        self.dockwidget.pushButtonK10000.setStyleSheet('QPushButton {background-color: #b7eced}')
+
+    # Kontrole ocen
+    # 30100
+    def run_control_30100(self):
+        self.get_error_result_by_error_code(30100)
+
+    # 30101
+    def run_control_30101(self):
+        self.get_error_result_by_error_code(30101)
+
+    # 30102
+    def run_control_30102(self):
+        self.get_error_result_by_error_code(30102)
+
+    # 30150
+    def run_control_30150(self):
+        self.get_error_result_by_error_code(30150)
+
+    # 30200
+    def run_control_30200(self):
+        self.get_error_result_by_error_code(30200)
+
+    # 30201
+    def run_control_30201(self):
+        self.get_error_result_by_error_code(30201)
+
+    # 30210
+    def run_control_30210(self):
+        self.get_error_result_by_error_code(30210)
+
+    # 30211
+    def run_control_30211(self):
+        self.get_error_result_by_error_code(30211)
+
+    # 30212
+    def run_control_30212(self):
+        self.get_error_result_by_error_code(30212)
+
+    # 30220
+    def run_control_30220(self):
+        self.get_error_result_by_error_code(30220)
+
+    # 30221
+    def run_control_30221(self):
+        self.get_error_result_by_error_code(30221)
+
+    # 30222
+    def run_control_30222(self):
+        self.get_error_result_by_error_code(30222)
+
+    # 30230
+    def run_control_30230(self):
+        self.get_error_result_by_error_code(30230)
+
+    # 30231
+    def run_control_30231(self):
+        self.get_error_result_by_error_code(30231)
+
+    # 30232
+    def run_control_30232(self):
+        self.get_error_result_by_error_code(30232)
+
+    # 30500
+    def run_control_30500(self):
+        self.get_error_result_by_error_code(30500)
+
+    # 30501
+    def run_control_30501(self):
+        self.get_error_result_by_error_code(30501)
+
+    # 30502
+    def run_control_30502(self):
+        self.get_error_result_by_error_code(30502)
+
+    # Kompleksowa kontrola oceny 30000
+
+    def complex_control_ratings(self):
+        self.clearPlainTextEditInfo()
+        # 30100
+        self.run_control_30100()
+        # 30101
+        self.run_control_30101()
+        # 30102
+        self.run_control_30102()
+        # 30150
+        self.run_control_30150()
+        # 30200
+        self.run_control_30200()
+        # 30201
+        self.run_control_30201()
+        # 30210
+        self.run_control_30210()
+        # 30211
+        self.run_control_30211()
+        # 30212
+        self.run_control_30212()
+        # 30220
+        self.run_control_30220()
+        # 30221
+        self.run_control_30221()
+        # 30222
+        self.run_control_30222()
+        # 30230
+        self.run_control_30230()
+        # 30231
+        self.run_control_30231()
+        # 30232
+        self.run_control_30232()
+        # 30500
+        self.run_control_30500()
+        # 30501
+        self.run_control_30501()
+        # 30502
+        self.run_control_30502()
+        self.dockwidget.plainTextEdit_info.setPlainText("Wyniki kontroli zostały zapisane w lokalizacji bazy danych")
+        self.dockwidget.pushButtonK30000.setStyleSheet('QPushButton {background-color: #b7eced}')
+
+    # Kontrole zdjęć fito
+    # 20000
+    def run_control_20000(self):
+        self.get_error_result_by_error_code(20000)
+    # 20001
+    def run_control_20001(self):
+        self.get_error_result_by_error_code(20001)
+    # 20002
+    def run_control_20002(self):
+        self.get_error_result_by_error_code(20002)
+    # 20003
+    def run_control_20003(self):
+        self.get_error_result_by_error_code(20003)
+    # 20004
+    def run_control_20004(self):
+        self.get_error_result_by_error_code(20004)
+    # 20005
+    def run_control_20005(self):
+        self.get_error_result_by_error_code(20005)
+    # 20006
+    def run_control_20006(self):
+        self.get_error_result_by_error_code(20006)
+    # 20010
+    def run_control_20010(self):
+        self.get_error_result_by_error_code(20010)
+    # 20020
+    def run_control_20020(self):
+        self.get_error_result_by_error_code(20020)
+
+    def complex_control_phytoreleves(self):
+        self.clearPlainTextEditInfo()
+        # 20000
+        self.run_control_20000()
+        # 20001
+        self.run_control_20001()
+        # 20002
+        self.run_control_20002()
+        # 20003
+        self.run_control_20003()
+        # 20004
+        self.run_control_20004()
+        # 20005
+        self.run_control_20005()
+        # 20006
+        self.run_control_20006()
+        # 20010
+        self.run_control_20010()
+        # 20020
+        self.run_control_20020()
+        self.dockwidget.plainTextEdit_info.setPlainText("Wyniki kontroli zostały zapisane w lokalizacji bazy danych")
+        self.dockwidget.pushButtonK20000.setStyleSheet('QPushButton {background-color: #b7eced}')
+
+
+    # Kontrole oddziaływań, zagrożeń, działań
+    # 10500
+    def run_control_10500(self):
+        self.get_error_result_by_error_code(10500)
+    # 10501
+    def run_control_10501(self):
+        self.get_error_result_by_error_code(10501)
+    # 10502
+    def run_control_10502(self):
+        self.get_error_result_by_error_code(10502)
+    # 10600
+    def run_control_10600(self):
+        self.get_error_result_by_error_code(10600)
+    # 10601
+    def run_control_10601(self):
+        self.get_error_result_by_error_code(10601)
+    # 10602
+    def run_control_10602(self):
+        self.get_error_result_by_error_code(10602)
+    # 10700
+    def run_control_10700(self):
+        self.get_error_result_by_error_code(10700)
+    # 10701
+    def run_control_10701(self):
+        self.get_error_result_by_error_code(10701)
+    # 10702
+    def run_control_10702(self):
+        self.get_error_result_by_error_code(10702)
+    # 10703
+    def run_control_10703(self):
+        self.get_error_result_by_error_code(10703)
+    # 10704
+    def run_control_10704(self):
+        self.get_error_result_by_error_code(10704)
+    # 10705
+    def run_control_10705(self):
+        self.get_error_result_by_error_code(10705)
+
+    def complex_control_threats(self):
+        self.clearPlainTextEditInfo()
+        # 10500
+        self.run_control_10500()
+        # 10501
+        self.run_control_10501()
+        # 10502
+        self.run_control_10502()
+        # 10600
+        self.run_control_10600()
+        # 10601
+        self.run_control_10601()
+        # 10602
+        self.run_control_10602()
+        # 10700
+        self.run_control_10700()
+        # 10701
+        self.run_control_10701()
+        # 10702
+        self.run_control_10702()
+        # 10703
+        self.run_control_10703()
+        # 10704
+        self.run_control_10704()
+        # 10705
+        self.run_control_10705()
+        self.dockwidget.plainTextEdit_info.setPlainText("Wyniki kontroli zostały zapisane w lokalizacji bazy danych")
+        self.dockwidget.pushButtonK10500.setStyleSheet('QPushButton {background-color: #b7eced}')
 
 
 
@@ -2727,6 +2944,12 @@ class MonitoringTools:
         else:
             return d_base
 
+    def generate_geom_kontr_folder(self, folder_name):
+        folder_path = os.path.join(self.get_file_directory(), folder_name)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        return folder_path
+
 
     def generate_csv_reports(self, description, header, data,  folder_directory, report_name):
 
@@ -2743,6 +2966,29 @@ class MonitoringTools:
             writer = csv.writer(f, delimiter=';')
 
             # write the header
+            writer.writerow([description])
+            writer.writerow(['Wygenerowano: ', current_date])
+            writer.writerow("")
+            writer.writerow(header)
+            # write multiple rows
+            writer.writerows(data)
+
+    def generate_csv_reports_second(self, name, description, header, data,  folder_directory, report_name):
+
+        if not os.path.exists(self.get_file_directory() + "/" + folder_directory):
+            os.makedirs(self.get_file_directory() + "/" + folder_directory)
+
+        current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        file_path = self.get_file_directory() + "/" + folder_directory + "/" + report_name
+
+        data = [[str(item)] for item in data]
+
+        with open(file_path, 'w', encoding='cp1250', newline='') as f:
+            writer = csv.writer(f, delimiter=';')
+
+            # write the header
+            writer.writerow([name])
             writer.writerow([description])
             writer.writerow(['Wygenerowano: ', current_date])
             writer.writerow("")
@@ -2785,6 +3031,195 @@ class MonitoringTools:
                 layerByName = QgsProject.instance().mapLayersByName(layerName)[0]
                 QgsProject.instance().removeMapLayer(layerByName.id())
 
+    def test (self):
+
+        self.get_error_result_by_error_code(30100)
+        #
+        #
+        # new_control_model = self.select_control_models_by_error_code(30100)
+        # data = new_control_model[0].get_error_query()
+        # print(data)
+
+    # def add_data_to_control_model(self):
+    #     control_model = ControlModel(
+    #         area_id=1234567890,
+    #         year=2024,
+    #         error_code=101,
+    #         error_name="SampleError",
+    #         error_poz_name="Position1",
+    #         error_description="This is a sample error description.",
+    #         warning_flag=1,
+    #         error_status_flag=0,
+    #         error_query="SELECT * FROM errors"
+    #     )
+    #     return control_model
+
+    import sqlite3
+
+    def get_error_result_by_error_code(self, error_code):
+        # ADD report
+        self.clearPlainTextEditInfo()
+
+        # 01 Get list of areas
+        list_of_areas = self.getListOfAreaByQuery("SELECT DISTINCT stanowisko_nr, rok FROM stanowisko_rok")
+        if not list_of_areas:
+            print("No areas found")
+            return
+
+        # Print list of areas to debug
+        # print("List of Areas:", list_of_areas)
+
+        # Dbase address
+        d_base = self.get_dBase_directory()
+        if not d_base:
+            print("Database directory not found")
+            return
+
+        # Declare connections
+        conn = sqlite3.connect(d_base)
+        cur = conn.cursor()
+
+        # 02 Get sql query from 'sl_kontole'
+        query = ""
+        controll_name = ""
+        code_desc = ""
+
+        try:
+            cur.execute("SELECT kwerenda, kontrola_nm, kod_opis FROM sl_kontrola WHERE kontrola_cd=?", (error_code,))
+            rows = cur.fetchall()
+
+            if not rows:
+                print("No control found for the given error code")
+                return
+
+            for row in rows:
+                query = row[0]
+                controll_name = row[1]
+                code_desc = row[2]
+
+            if not query:
+                print("Query is empty")
+                return
+
+            list_of_failed_areas = []
+
+            for data in list_of_areas:
+                if isinstance(data, tuple) and len(data) == 2:
+                    stanowisko_nr, rok = data
+                else:
+                    stanowisko_nr = data
+                    rok = 2023
+
+                # print(f"Executing query for stanowisko_nr: {stanowisko_nr}, rok: {rok}")
+
+                # Print the query and parameters to debug
+                # print(f"Query: {query}")
+                # print(f"Parameters: ({stanowisko_nr}, {rok})")
+
+                # Count the number of placeholders in the query
+                num_placeholders = query.count('?')
+
+                try:
+                    if num_placeholders == 2:
+                        cur.execute(query, (stanowisko_nr, rok))
+                    elif num_placeholders == 1:
+                        cur.execute(query, (stanowisko_nr,))
+                    else:
+                        # print(f"Unexpected number of placeholders ({num_placeholders}) in query: {query}")
+                        return
+
+                    rows = cur.fetchall()
+                    if rows:
+                        # print(f"Failed areas for stanowisko_nr: {stanowisko_nr}, rok: {rok}: {rows}")
+                        for row in rows:
+                            list_of_failed_areas.append(row[0])
+                except sqlite3.OperationalError as e:
+                    print(f"SQLite error: {e}")
+
+            if len(list_of_failed_areas) > 0:
+                self.appendDataToPlainTextEdit("", self.dockwidget.plainTextEdit_info)
+                self.appendDataToPlainTextEdit(controll_name, self.dockwidget.plainTextEdit_info)
+                for data_dbase in list_of_failed_areas:
+                    self.appendDataToPlainTextEdit(str(data_dbase), self.dockwidget.plainTextEdit_info)
+                self.generate_csv_reports_second(controll_name, code_desc, ["ID_STANOWISKA"], list_of_failed_areas,
+                                                 "monitoring_gis_tools_raporty_kontroli",
+                                                 f"Kontrola_numer_{error_code}.csv")
+                button_name = f'pushButton{error_code}'
+                button = getattr(self.dockwidget, button_name)
+                button.setStyleSheet('QPushButton {background-color: #ff0000}')
+            else:
+                self.appendDataToPlainTextEdit(f"Kontrola {error_code} przebiegła pomyślnie",
+                                               self.dockwidget.plainTextEdit_info)
+                self.generate_csv_reports_second(controll_name, code_desc, ["ID_STANOWISKA"], list_of_failed_areas,
+                                                 "monitoring_gis_tools_raporty_kontroli",
+                                                 f"Kontrola_numer_{error_code}_OK.csv")
+                button_name = f'pushButton{error_code}'
+                button = getattr(self.dockwidget, button_name)
+                button.setStyleSheet('QPushButton {background-color: #3cb371}')
+        finally:
+            conn.close()  # Make sure to close the database connection
+
+    def select_control_models_by_error_code(self, error_code: str) -> List[ControlModel]:
+
+        self.clear_info_labels()
+
+        # Dbase address
+        d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
+
+        # Clear warning massage
+        self.dockwidget.label_warning.setText("")
+
+        # check if base exist
+        if not (str(d_base)):
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
+            return False
+
+
+        # Declare connections
+        conn = sqlite3.connect(d_base)
+
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM sl_kontrola WHERE kontrola_cd=?",
+            (error_code,))
+
+        rows = cur.fetchall()
+
+        control_models = []
+        for row in rows:
+            control_model = ControlModel(
+                area_id=0,
+                year=2024,
+                error_code=row[0],
+                error_name=row[1],
+                error_poz_name=row[2],
+                error_description=row[3],
+                warning_flag=row[4],
+                error_status_flag=0,
+                error_query=row[5]
+            )
+            control_models.append(control_model)
+
+        return control_models
+
+
+    # def main():
+    #     database = "path_to_your_database.db"
+    #
+    #     # create a database connection
+    #     conn = create_connection(database)
+    #
+    #     with conn:
+    #         error_code = 'E001'  # Example error code to query
+    #         print(f"Query control models with error_code={error_code}")
+    #         control_models = select_control_models_by_error_code(conn, error_code)
+    #
+    #         for model in control_models:
+    #             print(model.__dict__)  # Print the dictionary representation of the model
+    #
+    # if __name__ == '__main__':
+    #     main()
+
         # map_layers = QgsProject.instance().mapLayers()
         # if layer_name in map_layers:
         #     layerByName = QgsProject.instance().mapLayersByName(layer_name)[0]
@@ -2815,7 +3250,6 @@ class MonitoringTools:
             self.comboBoxAraesPolygonSelectAction()
 
             # Odświeżanie ostatnio wykorzystanych ścieżek
-            # Odświeżanie ostatnio wykorzystanych ścieżek
             self.dBaseDirectoryLoad()
 
             # Actions button click
@@ -2823,7 +3257,7 @@ class MonitoringTools:
             self.dockwidget.pushButton_generate_point_layer.clicked.connect(self.generatePointLayer)
             self.dockwidget.pushButton_compatibilyty.clicked.connect(self.compatibilyty_check_tools)
             self.dockwidget.pushButtonNumerationValidatingLayer.clicked.connect(self.numeration_validating_map)
-            self.dockwidget.pushButtonNumerationValidatingDBase.clicked.connect(self.numeration_validating_map_dBase)
+
 
             # T_0101
             self.dockwidget.pushButton_rewrite_area_to_dbase.clicked.connect(self.rewrite_area_to_dbase)
@@ -2843,6 +3277,10 @@ class MonitoringTools:
             # T_0107
             self.dockwidget.pushButton_round_geometry.clicked.connect(self.round_geometry)
 
+            # Snap
+            self.dockwidget.pushButton_snaptool.clicked.connect(self.snap_vertices_to_rezerwaty)
+
+
             # T_0108
             self.dockwidget.pushButton_prepare_structure.clicked.connect(self.prepare_structure)
 
@@ -2858,56 +3296,169 @@ class MonitoringTools:
             self.dockwidget.pushButton_control_nat_reserve_extent.clicked.connect(self.control_nat_reserve_extent)
             # C_0105
             self.dockwidget.pushButton_find_overlaps.clicked.connect(self.find_overlaps)
-            # C_01006
+            # C_0106
             self.dockwidget.pushButton_find_gaps.clicked.connect(self.find_gaps)
 
 
-            # C_0203
-            self.dockwidget.pushButton_control_coordinates.clicked.connect(self.control_coordinates)
-            # C_0204
-            self.dockwidget.pushButton_control_missing_gen_assasement.clicked.connect(self.missing_gen_assasement)
-            # C_0205
-            self.dockwidget.pushButton_control_missing_par_assasement.clicked.connect(self.missing_par_assasement)
-            self.dockwidget.pushButton_control_missing_gen_assasement_desc.clicked.connect(self.missing_gen_assasement_desc)
-            self.dockwidget.pushButton_control_missing_par_assasement_desc.clicked.connect(self.missing_par_assasement_desc)
-            # C_0209
-            self.dockwidget.pushButton_control_missing_indicators_assasement.clicked.connect(self.missing_indicators_assasement)
-
-            self.dockwidget.pushButton_control_missing_indicators_assasement_desc.clicked.connect(self.missing_indicators_assasement_desc)
-            # C_0210
-            self.dockwidget.pushButton_control_missing_gen_assasement_exist_desc_assasement.clicked.connect(self.missing_gen_assasement_exist_desc_assasement)
-            # 0213
-            self.dockwidget.pushButton_control_missing_site_description.clicked.connect(self.missing_site_description)
-            # 0214
-            self.dockwidget.pushButton_control_missing_natural_values.clicked.connect(self.missing_natural_values)
-            # 0215
-            self.dockwidget.pushButton_missing_date_information.clicked.connect(self.missing_date_information)
-            # 0216
-            self.dockwidget.pushButton_missing_availability_information.clicked.connect(self.missing_availability_information)
-            # 0217
-            self.dockwidget.pushButton_missing_impacts.clicked.connect(self.missing_impacts)
-            # 0218
-            self.dockwidget.pushButton_missing_threats.clicked.connect(self.missing_threats)
-            # 0219
-            self.dockwidget.pushButton_missing_protectiv_actions.clicked.connect(self.missing_protectiv_actions)
-            # 0220
-            self.dockwidget.pushButton_missingelements_in_photo_documentation.clicked.connect(self.missing_elements_in_photo_doc)
-            # 0221
-            self.dockwidget.pushButton_compatibility_validation.clicked.connect(self.compatibility_validation)
-            # C_0222
-            self.dockwidget.pushButton_missing_resigantion_exist_resignation_cause.clicked.connect(self.missing_resigantion_exist_resignation_cause)
-            # C_0223
-            self.dockwidget.pushButton_missing_resigantion_cause.clicked.connect(self.missing_resigantion_cause)
             # T_0301
             self.dockwidget.mMapLayerComboBox_nmt_raster.setFilters(QgsMapLayerProxyModel.RasterLayer)
             self.dockwidget.pushButton_make_buffer_area.clicked.connect(self.make_buffer_area)
 
+            # przyciski kontroli Baza2
+
+            # 30100
+            self.dockwidget.pushButton30100.clicked.connect(self.run_control_30100)
+            # 30210
+            self.dockwidget.pushButton30210.clicked.connect(self.run_control_30210)
+            # 30220
+            self.dockwidget.pushButton30220.clicked.connect(self.run_control_30220)
+            # 30230
+            self.dockwidget.pushButton30230.clicked.connect(self.run_control_30230)
+            # 30500
+            self.dockwidget.pushButton30500.clicked.connect(self.run_control_30500)
+            # 30150
+            self.dockwidget.pushButton30150.clicked.connect(self.run_control_30150)
+            # 30211
+            self.dockwidget.pushButton30211.clicked.connect(self.run_control_30211)
+            # 30221
+            self.dockwidget.pushButton30221.clicked.connect(self.run_control_30221)
+            # 30231
+            self.dockwidget.pushButton30231.clicked.connect(self.run_control_30231)
+            # 30200
+            self.dockwidget.pushButton30200.clicked.connect(self.run_control_30200)
+            # 30201
+            self.dockwidget.pushButton30201.clicked.connect(self.run_control_30201)
+            # 30501
+            self.dockwidget.pushButton30501.clicked.connect(self.run_control_30501)
+            # 10210
+            self.dockwidget.pushButton10210.clicked.connect(self.run_control_10210)
+            # 10211
+            self.dockwidget.pushButton10211.clicked.connect(self.run_control_10211)
+            # 10200
+            self.dockwidget.pushButton10200.clicked.connect(self.run_control_10200)
+            # 10201
+            self.dockwidget.pushButton10201.clicked.connect(self.run_control_10201)
+            # 10220
+            self.dockwidget.pushButton10220.clicked.connect(self.run_control_10220)
+            # 10221
+            self.dockwidget.pushButton10221.clicked.connect(self.run_control_10221)
+            # 10280
+            self.dockwidget.pushButton10280.clicked.connect(self.run_control_10280)
+            # 10101
+            self.dockwidget.pushButton10101.clicked.connect(self.run_control_10101)
+            # 10102
+            self.dockwidget.pushButton10102.clicked.connect(self.run_control_10102)
+            # 10010
+            self.dockwidget.pushButton10010.clicked.connect(self.run_control_10010)
+            # 10001
+            self.dockwidget.pushButton10001.clicked.connect(self.run_control_10001)
+            # 10002
+            self.dockwidget.pushButton10002.clicked.connect(self.run_control_10002)
+            # 10005
+            self.dockwidget.pushButton10005.clicked.connect(self.run_control_10005)
+            # 10020
+            self.dockwidget.pushButton10020.clicked.connect(self.run_control_10020)
+            # 10240
+            self.dockwidget.pushButton10240.clicked.connect(self.run_control_10240)
+            # 10230
+            self.dockwidget.pushButton10230.clicked.connect(self.run_control_10230)
+            # 10231
+            self.dockwidget.pushButton10231.clicked.connect(self.run_control_10231)
+            # 10250
+            self.dockwidget.pushButton10250.clicked.connect(self.run_control_10250)
+            # 10251
+            self.dockwidget.pushButton10251.clicked.connect(self.run_control_10251)
+            # 10252
+            self.dockwidget.pushButton10252.clicked.connect(self.run_control_10252)
+            # 10260
+            self.dockwidget.pushButton10260.clicked.connect(self.run_control_10260)
+            # 10270
+            self.dockwidget.pushButton10270.clicked.connect(self.run_control_10270)
+            # 10271
+            self.dockwidget.pushButton10271.clicked.connect(self.run_control_10271)
+            # 10290
+            self.dockwidget.pushButton10290.clicked.connect(self.run_control_10290)
+            # 10300
+            self.dockwidget.pushButton10300.clicked.connect(self.run_control_10300)
+            # 10281
+            self.dockwidget.pushButton10281.clicked.connect(self.run_control_10281)
+            # 20000
+            self.dockwidget.pushButton20000.clicked.connect(self.run_control_20000)
+            # 20001
+            self.dockwidget.pushButton20001.clicked.connect(self.run_control_20001)
+            # 20002
+            self.dockwidget.pushButton20002.clicked.connect(self.run_control_20002)
+            # 20003
+            self.dockwidget.pushButton20003.clicked.connect(self.run_control_20003)
+            # 20004
+            self.dockwidget.pushButton20004.clicked.connect(self.run_control_20004)
+            # 20005
+            self.dockwidget.pushButton20005.clicked.connect(self.run_control_20005)
+            # 20006
+            self.dockwidget.pushButton20006.clicked.connect(self.run_control_20006)
+            # 20010
+            self.dockwidget.pushButton20010.clicked.connect(self.run_control_20010)
+            # 20020
+            self.dockwidget.pushButton20020.clicked.connect(self.run_control_20020)
+            # 10500
+            self.dockwidget.pushButton10500.clicked.connect(self.run_control_10500)
+            # 10600
+            self.dockwidget.pushButton10600.clicked.connect(self.run_control_10600)
+            # 10700
+            self.dockwidget.pushButton10700.clicked.connect(self.run_control_10700)
+            # 30232
+            self.dockwidget.pushButton30232.clicked.connect(self.run_control_30232)
+            # 30212
+            self.dockwidget.pushButton30212.clicked.connect(self.run_control_30212)
+            # 30222
+            self.dockwidget.pushButton30222.clicked.connect(self.run_control_30222)
+            # 10702
+            self.dockwidget.pushButton10702.clicked.connect(self.run_control_10702)
+            # 10701
+            self.dockwidget.pushButton10701.clicked.connect(self.run_control_10701)
+            # 10703
+            self.dockwidget.pushButton10703.clicked.connect(self.run_control_10703)
+            # 10704
+            self.dockwidget.pushButton10704.clicked.connect(self.run_control_10704)
+            # 10705
+            self.dockwidget.pushButton10705.clicked.connect(self.run_control_10705)
+            # 10601
+            self.dockwidget.pushButton10601.clicked.connect(self.run_control_10601)
+            # 10602
+            self.dockwidget.pushButton10602.clicked.connect(self.run_control_10602)
+            # 10501
+            self.dockwidget.pushButton10501.clicked.connect(self.run_control_10501)
+            # 10502
+            self.dockwidget.pushButton10502.clicked.connect(self.run_control_10502)
+            # 30502
+            self.dockwidget.pushButton30502.clicked.connect(self.run_control_30502)
+            # 30101
+            self.dockwidget.pushButton30101.clicked.connect(self.run_control_30101)
+            # 30102
+            self.dockwidget.pushButton30102.clicked.connect(self.run_control_30102)
+            # 10100
+            self.dockwidget.pushButton10100.clicked.connect(self.run_control_10100)
+            # 10282
+            self.dockwidget.pushButton10282.clicked.connect(self.run_control_10282)
+            #
+            # K10000
+            self.dockwidget.pushButtonK10000.clicked.connect(self.complex_control_general_data)
+            # K30000
+            self.dockwidget.pushButtonK30000.clicked.connect(self.complex_control_ratings)
+            # K20000
+            self.dockwidget.pushButtonK20000.clicked.connect(self.complex_control_phytoreleves)
+            # K10500
+            self.dockwidget.pushButtonK10500.clicked.connect(self.complex_control_threats)
+
+            # test
+            self.dockwidget.pushButtonTest.clicked.connect(self.test)
 
 
 
             self.dockwidget.mMapLayerComboBoxAraesPolygon.activated.connect(lambda: self.comboBoxAraesPolygonSelectAction())
             self.dockwidget.mMapLayerComboBoxAraesPolygon.layerChanged.connect(lambda: self.comboBoxAraesPolygonSelectAction())
             self.dockwidget.mMapLayerComboBoxAraesPolygon.currentIndexChanged.connect(self.comboBoxAraesPolygonSelectAction)
+
 
 
             # show the dockwidget

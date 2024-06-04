@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>732</width>
-    <height>820</height>
+    <width>836</width>
+    <height>874</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,84 +16,1434 @@
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QGridLayout" name="gridLayout_4">
     <item row="0" column="0">
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_4">
       <item>
-       <widget class="QScrollArea" name="scrollArea">
+       <widget class="QTabWidget" name="tabWidget">
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="tab_3">
+         <attribute name="title">
+          <string>Dane wejściowe</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <item>
+           <widget class="QScrollArea" name="scrollArea">
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="scrollAreaWidgetContents">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>765</width>
+               <height>801</height>
+              </rect>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_2">
+              <item row="0" column="1">
+               <layout class="QGridLayout" name="gridLayout">
+                <item row="26" column="0">
+                 <widget class="QLabel" name="label_19">
+                  <property name="text">
+                   <string>Wysokość stefy buforowej dodana do średniej wysokości stanowiska</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="25" column="1">
+                 <layout class="QHBoxLayout" name="horizontalLayout">
+                  <item>
+                   <widget class="QLineEdit" name="lineEdit_max_buffer_width">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>100</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_15">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>[m]</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="27" column="0">
+                 <widget class="QCheckBox" name="checkBox_analize_min_heigth">
+                  <property name="text">
+                   <string>Wysokość strefy buforowej dodano do minimalnej wysokości stanowiska</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item row="15" column="0" colspan="2">
+                 <widget class="QPushButton" name="pushButton_control_duplicates">
+                  <property name="text">
+                   <string>C_0102: Powtarzające się numery powierzchni (duplikaty)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="24" column="0">
+                 <widget class="QLabel" name="label_13">
+                  <property name="font">
+                   <font>
+                    <weight>75</weight>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Strefy buforowe</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QLabel" name="label_2">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Baza danych:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="29" column="0" colspan="2">
+                 <widget class="QPushButton" name="pushButton_make_buffer_area">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="text">
+                   <string>Strefy buforowe</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="26" column="1">
+                 <layout class="QHBoxLayout" name="horizontalLayout_3">
+                  <item>
+                   <widget class="QLineEdit" name="lineEdit_additional_height">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="inputMethodHints">
+                     <set>Qt::ImhPreferNumbers</set>
+                    </property>
+                    <property name="text">
+                     <string>5</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_20">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>[m]</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="13" column="0">
+                 <widget class="QPushButton" name="pushButtonTest">
+                  <property name="text">
+                   <string>Test</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0" colspan="2">
+                 <widget class="Line" name="line">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="27" column="1">
+                 <layout class="QHBoxLayout" name="horizontalLayout_2">
+                  <item>
+                   <widget class="QLineEdit" name="lineEdit_reduced_height">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="inputMethodHints">
+                     <set>Qt::ImhPreferNumbers</set>
+                    </property>
+                    <property name="text">
+                     <string>1</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_18">
+                    <property name="text">
+                     <string>[m]</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="4" column="0" colspan="2">
+                 <widget class="Line" name="line_3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="14" column="0" colspan="2">
+                 <widget class="QPushButton" name="pushButtonNumerationValidatingLayer">
+                  <property name="text">
+                   <string>C_0101: Poprawność numeracji</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="28" column="1">
+                 <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox_nmt_raster"/>
+                </item>
+                <item row="18" column="0" colspan="2">
+                 <widget class="QPushButton" name="pushButton_control_nat_reserve_extent">
+                  <property name="enabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="text">
+                   <string>C_0104: Kontrola zasiegu płatów siedlisk względem rezerwatów przyrody</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="11" column="0">
+                 <widget class="QLabel" name="label_9">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <weight>75</weight>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Kontrole:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="21" column="0">
+                 <widget class="QLabel" name="label_8">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Linijka została po kontrolach bazy</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="19" column="0" colspan="2">
+                 <widget class="QPushButton" name="pushButton_find_overlaps">
+                  <property name="enabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="text">
+                   <string>C_0105: Kontrola nałożeń (overlaps)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="17" column="0" colspan="2">
+                 <widget class="QPushButton" name="pushButton_control_n2000_extent">
+                  <property name="enabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="text">
+                   <string>C_0103: Kontrola zasiegu płatów siedlisk względem obszarów Natura 2000</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="20" column="0" colspan="2">
+                 <widget class="QPushButton" name="pushButton_find_gaps">
+                  <property name="enabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="text">
+                   <string>C_0106: Kontrola występowania dziur (gaps)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="0">
+                 <widget class="QLabel" name="label_3">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Warstwa zasięgu siedlisk:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="12" column="0">
+                 <widget class="QLabel" name="label_4">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Mapa:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Dane wejściowe:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="16" column="1">
+                 <widget class="QLineEdit" name="lineEdit_snap_tolerance">
+                  <property name="text">
+                   <string>0,15</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="16" column="0">
+                 <widget class="QPushButton" name="pushButton_snaptool">
+                  <property name="text">
+                   <string>2. Dociagnij płaty do Rezerwatów i SOO</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="10" column="0" colspan="2">
+                 <widget class="Line" name="line_2">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="6" column="0" colspan="2">
+                 <widget class="QgsMapLayerComboBox" name="mMapLayerComboBoxAraesPolygon"/>
+                </item>
+                <item row="8" column="0">
+                 <widget class="QLabel" name="label_6">
+                  <property name="text">
+                   <string>Nr stanowiska (id płatu):</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="pushButton_select_dBase">
+                  <property name="text">
+                   <string>...</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="25" column="0">
+                 <widget class="QLabel" name="label_14">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Maksymalna szerokość strefy:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLineEdit" name="lineEdit_dBase_directory"/>
+                </item>
+                <item row="8" column="1">
+                 <widget class="QComboBox" name="comboBoxFieldsName"/>
+                </item>
+                <item row="28" column="0">
+                 <widget class="QLabel" name="label_16">
+                  <property name="text">
+                   <string>Raster NMT:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="7" column="0">
+                 <widget class="QLabel" name="label_5">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Tabela atrybutów, oznaczenie kolumn:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="1">
+                 <widget class="QComboBox" name="comboBoxYear"/>
+                </item>
+                <item row="9" column="0">
+                 <widget class="QLabel" name="label_7">
+                  <property name="text">
+                   <string>Rok monitoringu:</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab_4">
+         <attribute name="title">
+          <string>Narzędzie</string>
+         </attribute>
+         <layout class="QGridLayout" name="gridLayout_16">
+          <item row="0" column="0">
+           <layout class="QGridLayout" name="gridLayout_15">
+            <item row="6" column="0">
+             <widget class="QPushButton" name="pushButton_round_geometry">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>T_0107: Zaokrąglenie geometrii (1 cm)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="pushButton_rewrite_area_to_dbase">
+              <property name="text">
+               <string>T_0102: Przepisanie powierzchni do bazy</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <widget class="QPushButton" name="pushButton_prepare_structure">
+              <property name="text">
+               <string>T_0108: Struktura tabeli atrybutów warsty zasięgu płatów</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QPushButton" name="pushButton_correct_compatibility">
+              <property name="text">
+               <string>T_0104: Korekta ocen zgodności na podstawie siedl. istniejącego i siedliska wg PZO</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QPushButton" name="pushButton_add_coordinates_to_d_base">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>T_0103: Uzupełnienie brakujących współrzędnych w bazie na podstawie warstwy</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QPushButton" name="pushButton_asign_n2000_to_dbase">
+              <property name="text">
+               <string>T_0105: Przepisanie obszarów N2000 do bazy danych</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QPushButton" name="pushButton_repair_geometryset_crs">
+              <property name="text">
+               <string>T_0106: Naprawa geometri, przypisanie układu (EPSG:2180 - CS92)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QPushButton" name="pushButton_generate_point_layer">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="acceptDrops">
+               <bool>false</bool>
+              </property>
+              <property name="toolTipDuration">
+               <number>-1</number>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="autoFillBackground">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>T_0101: Warstwa punktowa na podstawie współrzędnych z bazy</string>
+              </property>
+             </widget>
+            </item>
+            <item row="8" column="0">
+             <widget class="QPushButton" name="pushButton_asign_nature_reserve_to_dbase">
+              <property name="text">
+               <string>T_0109: Przepisanie rezerwatów przyrody do bazy danych</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab_5">
+         <attribute name="title">
+          <string>Kontrole</string>
+         </attribute>
+         <layout class="QGridLayout" name="gridLayout_17">
+          <item row="0" column="0">
+           <widget class="QToolBox" name="toolBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="baseSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="currentIndex">
+             <number>3</number>
+            </property>
+            <widget class="QWidget" name="daneogolne">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>517</width>
+               <height>297</height>
+              </rect>
+             </property>
+             <attribute name="label">
+              <string>Dane ogólne</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_13">
+              <item row="1" column="0">
+               <layout class="QGridLayout" name="gridLayout_12">
+                <item row="1" column="2">
+                 <widget class="QPushButton" name="pushButton10102">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>10102</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="0">
+                 <widget class="QPushButton" name="pushButton10250">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzeina powierzchni stanowiska. Kontrola zwraca błąd w przypadku wprowadzenia zerowej wartość powierzchni.</string>
+                  </property>
+                  <property name="text">
+                   <string>10250</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="4">
+                 <widget class="QPushButton" name="pushButton10282">
+                  <property name="toolTip">
+                   <string>Kontrola sprawdzająca wprowadzenie informacji o przyczynie niedostępności dla płatów niedostępnych.</string>
+                  </property>
+                  <property name="text">
+                   <string>10282</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="3">
+                 <widget class="QPushButton" name="pushButton10260">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia informacji o zarządzającym terenem.</string>
+                  </property>
+                  <property name="text">
+                   <string>10260</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="3">
+                 <widget class="QPushButton" name="pushButton10200">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia opisu stanowiska.</string>
+                  </property>
+                  <property name="text">
+                   <string>10200</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="pushButton10100">
+                  <property name="toolTip">
+                   <string>Kontrola sprawdzająca oznaczenie rezygnacji z monitoringu w przypadku wskazania siedliska nieinwentaryzowanego w projekcie.</string>
+                  </property>
+                  <property name="text">
+                   <string>10100</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="4">
+                 <widget class="QPushButton" name="pushButton10020">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia roku monitoringu.</string>
+                  </property>
+                  <property name="text">
+                   <string>10020</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="QPushButton" name="pushButton10251">
+                  <property name="toolTip">
+                   <string>Kontorla 'małej' wartości powierzchni. Kontrola zwraca błąd w przypadku wprowadzenia małej powierzchni płatu (&lt;0.05 ha). Może być to uzasadnione w szczególnych przypadkach (płaty cenne, opisy w dokumentacji typu PO/PZO itd.)</string>
+                  </property>
+                  <property name="text">
+                   <string>10251</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="pushButton10002">
+                  <property name="statusTip">
+                   <string>Kontrola wprowadzenia kodu siedliska lub informacji o braku siedliska ('brak'). Brak wprowadzonej informacji jest interpretowany jako 'brak siedliska'.</string>
+                  </property>
+                  <property name="text">
+                   <string>10002</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="3">
+                 <widget class="QPushButton" name="pushButton10010">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny zgodności z dokumentacją (należy wybrać jeden z kodów zgodności)</string>
+                  </property>
+                  <property name="text">
+                   <string>10010</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="3">
+                 <widget class="QPushButton" name="pushButton10221">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu  (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>10221</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="2">
+                 <widget class="QPushButton" name="pushButton10240">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia zbiorowisk roślinnych. Pusta lista zbiorowisk jest jednoznaczna z brakiem możliwości ich opisania/określenia (występują zbirowiska zastępcze/niecharakterystyczne).</string>
+                  </property>
+                  <property name="text">
+                   <string>10240</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="2">
+                 <widget class="QPushButton" name="pushButton10005">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia nazwy stanowiska. Należy wprowadzić nazwę zwyczajową/nazwę obiektu/nazwę uroczyska/adres leśny.</string>
+                  </property>
+                  <property name="text">
+                   <string>10005</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="3">
+                 <widget class="QPushButton" name="pushButton10281">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia informacji o dostępności powierzchni.</string>
+                  </property>
+                  <property name="text">
+                   <string>10281</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="4">
+                 <widget class="QPushButton" name="pushButton10201">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu  (długość &lt; 9 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>10201</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="1">
+                 <widget class="QPushButton" name="pushButton10271">
+                  <property name="toolTip">
+                   <string>Kontrola obliczonych/wprowadzonych wpółrzędnych stanowiska (Z - wysokość)</string>
+                  </property>
+                  <property name="text">
+                   <string>10271</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="pushButton10001">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia kodu siedliska lub informacji o braku siedliska ('brak'). Brak wprowadzonej informacji jest interpretowany jako 'brak siedliska'.</string>
+                  </property>
+                  <property name="text">
+                   <string>10001</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="0">
+                 <widget class="QPushButton" name="pushButton10270">
+                  <property name="toolTip">
+                   <string>Kontrola obliczonych/wprowadzonych wpółrzędnych stanowiska (X lub Y)</string>
+                  </property>
+                  <property name="text">
+                   <string>10270</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QPushButton" name="pushButton10230">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia form ochrony przyrody. Kontrola zwraca błąd w przypadku nie  wprowadzenia żadnej formy ochrony przyrody.</string>
+                  </property>
+                  <property name="text">
+                   <string>10230</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="pushButton10231">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia siedliskowych (PLH) lub siedliskowo-ptasich (PLC) obszarów Natura 2000, do listy form ochrony przyrody.</string>
+                  </property>
+                  <property name="text">
+                   <string>10231</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="2">
+                 <widget class="QPushButton" name="pushButton10220">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia wartości przyrodniczych.</string>
+                  </property>
+                  <property name="text">
+                   <string>10220</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="pushButton10101">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia uzasadnienia rezygnacji przy wprowadzonym oznaczeniu rezygnacji (odstąpienia) od monitoringu.</string>
+                  </property>
+                  <property name="text">
+                   <string>10101</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QPushButton" name="pushButton10210">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia opisu siedliska na stanowisku</string>
+                  </property>
+                  <property name="text">
+                   <string>10210</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QPushButton" name="pushButton10211">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu (długość &lt; 9 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>10211</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="2">
+                 <widget class="QPushButton" name="pushButton10252">
+                  <property name="toolTip">
+                   <string>Kontorla 'dużej' wartości powierzchni. Kontrola zwraca błąd w przypadku wprowadzenia dużej powierzchni płatu (&gt;20.0 ha). Może być to uzasadnione w szczególnych przypadkach, płat powinien być stosunkowo jednorodny.</string>
+                  </property>
+                  <property name="text">
+                   <string>10252</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="2">
+                 <widget class="QPushButton" name="pushButton10280">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia daty monitoringu.</string>
+                  </property>
+                  <property name="text">
+                   <string>10280</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="6" column="0">
+                 <widget class="QPushButton" name="pushButton10290">
+                  <property name="statusTip">
+                   <string>Kontrola wprowadzenia wykonawcy monitoringu</string>
+                  </property>
+                  <property name="text">
+                   <string>10290</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="6" column="1">
+                 <widget class="QPushButton" name="pushButton10300">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzonej dokumentacji fotograficznej.</string>
+                  </property>
+                  <property name="text">
+                   <string>10300</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item row="0" column="0">
+               <widget class="QPushButton" name="pushButtonK10000">
+                <property name="text">
+                 <string>Kompleksowa kontrola - dane ogólne</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="page_3">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>417</width>
+               <height>227</height>
+              </rect>
+             </property>
+             <attribute name="label">
+              <string>Oceny</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_11">
+              <item row="0" column="0">
+               <widget class="QPushButton" name="pushButtonK30000">
+                <property name="text">
+                 <string>Kompleksowa kontrola - oceny</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <layout class="QGridLayout" name="gridLayout_10">
+                <item row="3" column="2">
+                 <widget class="QPushButton" name="pushButton30231">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny opisowej (komentarza do oceny) dla oceny parametru perspektywa ochrony, przy wprowadzonym kodzie siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30231</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QPushButton" name="pushButton30210">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia kodu  (FV/U1/U2/XX) oceny parametru - powierzchnia siedliska, przy wprowadzonym kodzie siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30210</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="2">
+                 <widget class="QPushButton" name="pushButton30230">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia kodu (FV/U1/U2/XX) oceny parametru - perspektywa ochrony, przy wprowadzonym kodzie siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30230</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="pushButton30201">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny opisowej (komentarza do oceny) dla oceny jednego z parametrów.</string>
+                  </property>
+                  <property name="text">
+                   <string>30201</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="pushButton30100">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia kodu (FV/U1/U2/XX) oceny ogólnej, przy wprowadzonym kodzie siedliska.</string>
+                  </property>
+                  <property name="whatsThis">
+                   <string/>
+                  </property>
+                  <property name="text">
+                   <string>30100</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="pushButton30221">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny opisowej (komentarza do oceny) dla oceny parametru specyficzna struktura i funkcje, przy wprowadzononym kodzie siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30221</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QPushButton" name="pushButton30211">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny opisowej (komentarza do oceny) dla oceny parametru powierzchnia siedliska, przy wprowadzonym kodzie siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30211</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QPushButton" name="pushButton30220">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia kodu (FV/U1/U2/XX) oceny parametru - specyficzna struktura i funkcje, przy  wprowadzonym kodzie siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30220</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="pushButton30200">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia kodu (FV/U1/U2/XX) oceny jednego z parametrów, przy wprowadzonym kodzie siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30200</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="0">
+                 <widget class="QPushButton" name="pushButton30212">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>30212</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="QPushButton" name="pushButton30222">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>30222</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="2">
+                 <widget class="QPushButton" name="pushButton30232">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu  (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>30232</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QPushButton" name="pushButton30500">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia kodu (FV/U1/U2/XX) oceny przynajmniej jednego ze wskaźników  przy wprowadzeniu kodu siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30500</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="3">
+                 <widget class="QPushButton" name="pushButton30501">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny opisowej (komentarza do oceny) dla oceny jednego ze wskaźników.</string>
+                  </property>
+                  <property name="text">
+                   <string>30501</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="3">
+                 <widget class="QPushButton" name="pushButton30150">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny opisowej (komentarza do oceny) dla oceny ogólnej, wprowadzono kod siedliska.</string>
+                  </property>
+                  <property name="text">
+                   <string>30150</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="pushButton30102">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny ogólnej. Kontrola zwraca błąd w przypadku gdy oceny parametrów pozwalają na wyprowadzenie wyższej oceny ogólnej (U1) - brak parametrów ocenionych na U2.</string>
+                  </property>
+                  <property name="text">
+                   <string>30102</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="2">
+                 <widget class="QPushButton" name="pushButton30101">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia oceny ogólnej. Kontrola zwraca błąd w przypadku gdy oceny parametrów pozwalają na wyprowadzenie wyższej oceny ogólnej (FV) - brak parametrów ocenionych na U1 lub U2.</string>
+                  </property>
+                  <property name="text">
+                   <string>30101</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="3">
+                 <widget class="QPushButton" name="pushButton30502">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>30502</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="page_2">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>417</width>
+               <height>157</height>
+              </rect>
+             </property>
+             <attribute name="label">
+              <string>Zdjęcia fitosocjologiczne</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_9">
+              <item row="1" column="0">
+               <layout class="QGridLayout" name="gridLayout_3">
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="pushButton20000">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia zdjęcia fitosocjologicznego dla stanowiska.</string>
+                  </property>
+                  <property name="text">
+                   <string>20000</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="pushButton20001">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia daty wykonania zdjęcia fitosocjologicznego.</string>
+                  </property>
+                  <property name="text">
+                   <string>20001</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="2">
+                 <widget class="QPushButton" name="pushButton20002">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia (obliczenia) współrzędnych zdjęcia fitosocjologicznego</string>
+                  </property>
+                  <property name="text">
+                   <string>20002</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="3">
+                 <widget class="QPushButton" name="pushButton20003">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia wysokości (Z) zdjęcia fitosocjologicznego.</string>
+                  </property>
+                  <property name="text">
+                   <string>20003</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="pushButton20004">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia powierzchni zdjęcia fitosocjologicznego.</string>
+                  </property>
+                  <property name="text">
+                   <string>20004</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="pushButton20005">
+                  <property name="statusTip">
+                   <string>Kontrola wprowadzenia wystawy (ekspozycji) zdjęcia fitosocjologicznego, przy nachyleniu &gt;5 st.</string>
+                  </property>
+                  <property name="text">
+                   <string>20005</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QPushButton" name="pushButton20006">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia jednostki firosocjologicznej (zespołu/zbiorowiska) dla zdjęcia fitosocjologicznego.</string>
+                  </property>
+                  <property name="text">
+                   <string>20006</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QPushButton" name="pushButton20020">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia gatunków do zdjęcia fitosocjologicznego.</string>
+                  </property>
+                  <property name="text">
+                   <string>20020</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="3">
+                 <widget class="QPushButton" name="pushButton20010">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia pokrycia lub (i) wysokości warstwy, przy jednoczesnym wprowadzeniu gaunku w tej warstwie.</string>
+                  </property>
+                  <property name="text">
+                   <string>20010</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item row="0" column="0">
+               <widget class="QPushButton" name="pushButtonK20000">
+                <property name="text">
+                 <string>Kompleksowa kontrola - zdjęcia fitosocjologiczne</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="Baza2">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>784</width>
+               <height>431</height>
+              </rect>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="layoutDirection">
+              <enum>Qt::LeftToRight</enum>
+             </property>
+             <attribute name="label">
+              <string>Oddziaływania, zagrożenia, działania ochronne</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_7">
+              <item row="1" column="0">
+               <layout class="QGridLayout" name="gridLayout_5">
+                <item row="1" column="2">
+                 <widget class="QPushButton" name="pushButton10702">
+                  <property name="text">
+                   <string>10702</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="4">
+                 <widget class="QPushButton" name="pushButton10601">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia opisu zagrożenia.</string>
+                  </property>
+                  <property name="text">
+                   <string>10601</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="4">
+                 <widget class="QPushButton" name="pushButton10704">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia daty zakończenia wykonywania działań ochronnych.</string>
+                  </property>
+                  <property name="text">
+                   <string>10704</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="5">
+                 <widget class="QPushButton" name="pushButton10705">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia opisu prowadzenia działań ochronnych.</string>
+                  </property>
+                  <property name="text">
+                   <string>10705</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="pushButton10500">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzonych oddziaływań istniejących lub inforacji o braku oddziaływań.</string>
+                  </property>
+                  <property name="text">
+                   <string>10500</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="3">
+                 <widget class="QPushButton" name="pushButton10502">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>10502</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="3">
+                 <widget class="QPushButton" name="pushButton10703">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzenia daty rozpoczęcia wykonywania działań ochronnych.</string>
+                  </property>
+                  <property name="text">
+                   <string>10703</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="pushButton10701">
+                  <property name="toolTip">
+                   <string>Kontrola określenia typu działań ochronnych (planowane/wykonane).</string>
+                  </property>
+                  <property name="text">
+                   <string>10701</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="2">
+                 <widget class="QPushButton" name="pushButton10600">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzonych zagrożeń potencjalnych lub inforacji o braku zagrożeń.</string>
+                  </property>
+                  <property name="text">
+                   <string>10600</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="5">
+                 <widget class="QPushButton" name="pushButton10602">
+                  <property name="toolTip">
+                   <string>Kontrola długości tekstu, kontrola zwraca błąd przy niedostatecznej długości tekstu (długość &lt; 4 znaków).</string>
+                  </property>
+                  <property name="text">
+                   <string>10602</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="pushButton10501">
+                  <property name="toolTip">
+                   <string>Brak opisu oddziaływań</string>
+                  </property>
+                  <property name="text">
+                   <string>10501</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="pushButton10700">
+                  <property name="toolTip">
+                   <string>Kontrola wprowadzonych działań ochronnych.</string>
+                  </property>
+                  <property name="text">
+                   <string>10700</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item row="0" column="0">
+               <widget class="QPushButton" name="pushButtonK10500">
+                <property name="text">
+                 <string>Kompleksowa kontrola - oddziaływania, zagrożenia, działania ochronne</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="page">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>207</width>
+               <height>52</height>
+              </rect>
+             </property>
+             <attribute name="label">
+              <string>Baza - mapa</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_8">
+              <item row="0" column="0">
+               <layout class="QGridLayout" name="gridLayout_6">
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="pushButton_compatibilyty">
+                  <property name="text">
+                   <string>C_0301: Zgodność baza:mapa</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+      <item>
+       <widget class="QScrollArea" name="scrollArea_2">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>180</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>180</height>
+         </size>
+        </property>
         <property name="widgetResizable">
          <bool>true</bool>
         </property>
-        <widget class="QWidget" name="scrollAreaWidgetContents">
+        <widget class="QWidget" name="scrollAreaWidgetContents_2">
          <property name="geometry">
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>693</width>
-           <height>1662</height>
+           <width>793</width>
+           <height>203</height>
           </rect>
          </property>
-         <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="0">
-           <layout class="QGridLayout" name="gridLayout">
-            <item row="72" column="0">
-             <widget class="QLabel" name="label_12">
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <item>
+             <widget class="QLabel" name="label_11">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="inputMethodHints">
+               <set>Qt::ImhPreferNumbers</set>
+              </property>
+              <property name="text">
+               <string>Raport:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPlainTextEdit" name="plainTextEdit_info">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_info">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
               <property name="text">
                <string/>
               </property>
              </widget>
             </item>
-            <item row="58" column="0">
-             <widget class="QLabel" name="label_7">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="frameShape">
-               <enum>QFrame::NoFrame</enum>
-              </property>
-              <property name="frameShadow">
-               <enum>QFrame::Sunken</enum>
-              </property>
-              <property name="text">
-               <string>Baza-mapa:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLineEdit" name="lineEdit_dBase_directory"/>
-            </item>
-            <item row="36" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_indicators_assasement">
-              <property name="text">
-               <string>C_0206: Brak ocen wskaźników</string>
-              </property>
-             </widget>
-            </item>
-            <item row="21" column="0">
-             <widget class="QLabel" name="label_4">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Mapa:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="54" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_compatibility_validation">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0221: Brak oceny zgodności z dokumentacją</string>
-              </property>
-             </widget>
-            </item>
-            <item row="71" column="0">
+            <item>
              <widget class="QLabel" name="label_warning">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -197,663 +1547,10 @@
               </property>
              </widget>
             </item>
-            <item row="17" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_round_geometry">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>T_0107: Zaokrąglenie geometrii (1 cm)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="6" column="0" colspan="2">
-             <widget class="QgsMapLayerComboBox" name="mMapLayerComboBoxAraesPolygon"/>
-            </item>
-            <item row="30" column="0">
-             <widget class="QLabel" name="label_8">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Baza:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="48" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missing_date_information">
-              <property name="text">
-               <string>C_0215: Brak infrormacji o dacie kontroli</string>
-              </property>
-             </widget>
-            </item>
-            <item row="32" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_coordinates">
-              <property name="text">
-               <string>C_0203: Współrzędne</string>
-              </property>
-             </widget>
-            </item>
-            <item row="10" column="0">
-             <widget class="QLabel" name="label_10">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="font">
-               <font>
-                <weight>75</weight>
-                <bold>true</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Narzędzia:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="52" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missing_protectiv_actions">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0219: Brak wprowadzonych działań ochronnych (niepełny opis działań)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="25" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_duplicates">
-              <property name="text">
-               <string>C_0102: Powtarzające się numery powierzchni (duplikaty)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="14" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_correct_compatibility">
-              <property name="text">
-               <string>T_0104: Korekta ocen zgodności na podstawie siedl. istniejącego i siedliska wg PZO</string>
-              </property>
-             </widget>
-            </item>
-            <item row="38" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_par_assasement_desc">
-              <property name="text">
-               <string>C_0208: Brak ocen parametrów (ocena opisowa)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="67" column="0">
-             <widget class="QLabel" name="label_info">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
+            <item>
+             <widget class="QLabel" name="label_12">
               <property name="text">
                <string/>
-              </property>
-             </widget>
-            </item>
-            <item row="66" column="0" colspan="2">
-             <widget class="QLabel" name="label_11">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="font">
-               <font>
-                <weight>75</weight>
-                <bold>true</bold>
-               </font>
-              </property>
-              <property name="inputMethodHints">
-               <set>Qt::ImhPreferNumbers</set>
-              </property>
-              <property name="text">
-               <string>Raport:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="65" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_make_buffer_area">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>Strefy buforowe</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QPushButton" name="pushButton_select_dBase">
-              <property name="text">
-               <string>...</string>
-              </property>
-             </widget>
-            </item>
-            <item row="8" column="0">
-             <widget class="QLabel" name="label_6">
-              <property name="text">
-               <string>Nr stanowiska (id płatu):</string>
-              </property>
-             </widget>
-            </item>
-            <item row="37" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_gen_assasement_desc">
-              <property name="text">
-               <string>C_0207: Brak oceny ogólnej (ocena opisowa)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="0">
-             <widget class="QLabel" name="label_3">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Warstwa zasięgu siedlisk:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="9" column="0" colspan="2">
-             <widget class="Line" name="line_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-             </widget>
-            </item>
-            <item row="42" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_indicators_assasement_desc">
-              <property name="text">
-               <string>C_0209: Brak ocen wskaźników (ocena opisowa)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="33" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_gen_assasement">
-              <property name="text">
-               <string>C_0204: Brak oceny ogólnej</string>
-              </property>
-             </widget>
-            </item>
-            <item row="7" column="0">
-             <widget class="QLabel" name="label_5">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Tabela atrybutów, oznaczenie kolumn:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="55" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missing_resigantion_exist_resignation_cause">
-              <property name="text">
-               <string>C_0222: Stanowiska z uzasadnieniem rezygnacji (odstąpienia), bez zaznaczenia odstąpienia</string>
-              </property>
-             </widget>
-            </item>
-            <item row="53" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missingelements_in_photo_documentation">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0220: Braki w dokumentacji fotograficznej (ilość ,współrzędne, nazwa zdjęcia)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="29" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_find_gaps">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0106: Kontrola występowania dziur (gaps)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="51" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missing_threats">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0218: Brak wprawdzonych zagrożeń lub inf. o braku zagrożeń</string>
-              </property>
-             </widget>
-            </item>
-            <item row="16" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_repair_geometryset_crs">
-              <property name="text">
-               <string>T_0106: Naprawa geometri, przypisanie układu (EPSG:2180 - CS92)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="61" column="1">
-             <layout class="QHBoxLayout" name="horizontalLayout">
-              <item>
-               <widget class="QLineEdit" name="lineEdit_max_buffer_width">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="text">
-                 <string>100</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="label_15">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="text">
-                 <string>[m]</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item row="31" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButtonNumerationValidatingDBase">
-              <property name="text">
-               <string>C_0201: Poprawność numeracji</string>
-              </property>
-             </widget>
-            </item>
-            <item row="44" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_par_assasement_ex_desc_assasement">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0211: Brak oceny parametru - istniejąca ocena opisowa parametru</string>
-              </property>
-             </widget>
-            </item>
-            <item row="43" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_gen_assasement_exist_desc_assasement">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0210: Brak oceny ogólnej - istniejąca ocena opisowa</string>
-              </property>
-             </widget>
-            </item>
-            <item row="8" column="1">
-             <widget class="QComboBox" name="comboBoxFieldsName"/>
-            </item>
-            <item row="11" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_generate_point_layer">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="acceptDrops">
-               <bool>false</bool>
-              </property>
-              <property name="toolTipDuration">
-               <number>-1</number>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
-              </property>
-              <property name="autoFillBackground">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>T_0101: Warstwa punktowa na podstawie współrzędnych z bazy</string>
-              </property>
-             </widget>
-            </item>
-            <item row="62" column="0">
-             <widget class="QLabel" name="label_19">
-              <property name="text">
-               <string>Wysokość stefy buforowej dodana do średniej wysokości stanowiska</string>
-              </property>
-             </widget>
-            </item>
-            <item row="15" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_asign_n2000_to_dbase">
-              <property name="text">
-               <string>T_0105: Przepisanie obszarów N2000 do bazy danych</string>
-              </property>
-             </widget>
-            </item>
-            <item row="60" column="0">
-             <widget class="QLabel" name="label_13">
-              <property name="font">
-               <font>
-                <weight>75</weight>
-                <bold>true</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Strefy buforowe</string>
-              </property>
-             </widget>
-            </item>
-            <item row="27" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_nat_reserve_extent">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0104: Kontrola zasiegu płatów siedlisk względem rezerwatów przyrody</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="0" colspan="2">
-             <widget class="Line" name="line_3">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-             </widget>
-            </item>
-            <item row="20" column="0">
-             <widget class="QLabel" name="label_9">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="font">
-               <font>
-                <weight>75</weight>
-                <bold>true</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Kontrole:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="28" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_find_overlaps">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0105: Kontrola nałożeń (overlaps)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="59" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_compatibilyty">
-              <property name="text">
-               <string>C_0301: Zgodność baza:mapa</string>
-              </property>
-             </widget>
-            </item>
-            <item row="26" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_n2000_extent">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0103: Kontrola zasiegu płatów siedlisk względem obszarów Natura 2000</string>
-              </property>
-             </widget>
-            </item>
-            <item row="63" column="0">
-             <widget class="QCheckBox" name="checkBox_analize_min_heigth">
-              <property name="text">
-               <string>Wysokość strefy buforowej dodano do minimalnej wysokości stanowiska</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="12" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_rewrite_area_to_dbase">
-              <property name="text">
-               <string>T_0102: Przepisanie powierzchni do bazy</string>
-              </property>
-             </widget>
-            </item>
-            <item row="64" column="1">
-             <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox_nmt_raster"/>
-            </item>
-            <item row="49" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missing_availability_information">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0216: Brak infrormacji o dostępności</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0" colspan="2">
-             <widget class="Line" name="line">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-             </widget>
-            </item>
-            <item row="62" column="1">
-             <layout class="QHBoxLayout" name="horizontalLayout_3">
-              <item>
-               <widget class="QLineEdit" name="lineEdit_additional_height">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="inputMethodHints">
-                 <set>Qt::ImhPreferNumbers</set>
-                </property>
-                <property name="text">
-                 <string>5</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="label_20">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="text">
-                 <string>[m]</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item row="0" column="0">
-             <widget class="QLabel" name="label">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Dane wejściowe:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="24" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButtonNumerationValidatingLayer">
-              <property name="text">
-               <string>C_0101: Poprawność numeracji</string>
-              </property>
-             </widget>
-            </item>
-            <item row="64" column="0">
-             <widget class="QLabel" name="label_16">
-              <property name="text">
-               <string>Raster NMT:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="47" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_natural_values">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0214: Brak wprowadzonych wartości przyrodniczych</string>
-              </property>
-             </widget>
-            </item>
-            <item row="61" column="0">
-             <widget class="QLabel" name="label_14">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Maksymalna szerokość strefy:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="35" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_par_assasement">
-              <property name="text">
-               <string>C_0205: Brak ocen parametrów</string>
-              </property>
-             </widget>
-            </item>
-            <item row="18" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_prepare_structure">
-              <property name="text">
-               <string>T_0108: Struktura tabeli atrybutów warsty zasięgu płatów</string>
-              </property>
-             </widget>
-            </item>
-            <item row="56" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missing_resigantion_cause">
-              <property name="text">
-               <string>C_0223: Stanowiska do rezygnacji bez uzasadnienia rezygnacji</string>
-              </property>
-             </widget>
-            </item>
-            <item row="46" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_control_missing_site_description">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0213: Brak opisu siedliska na stanowisku</string>
-              </property>
-             </widget>
-            </item>
-            <item row="13" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_add_coordinates_to_d_base">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>T_0103: Uzupełnienie brakujących współrzędnych w bazie na podstawie warstwy</string>
-              </property>
-             </widget>
-            </item>
-            <item row="50" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_missing_impacts">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>C_0217: Brak wprawdzonych oddziaływań lub inf. o braku oddziaływań</string>
-              </property>
-             </widget>
-            </item>
-            <item row="57" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_invalid_coordinates">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0224: Współrzędne poza teoretycznym zasięgiem projektu (zasięg PL, -3&lt;h&lt;2500)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="label_2">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Baza danych:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="45" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_3">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>C_0212: Brak oceny wskaźnika - istniejąca ocena opisowa wskaźnika</string>
-              </property>
-             </widget>
-            </item>
-            <item row="63" column="1">
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
-              <item>
-               <widget class="QLineEdit" name="lineEdit_reduced_height">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="inputMethodHints">
-                 <set>Qt::ImhPreferNumbers</set>
-                </property>
-                <property name="text">
-                 <string>1</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="label_18">
-                <property name="text">
-                 <string>[m]</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item row="19" column="0" colspan="2">
-             <widget class="QPushButton" name="pushButton_asign_nature_reserve_to_dbase">
-              <property name="text">
-               <string>T_0109: Przepisanie rezerwatów przyrody do bazy danych</string>
               </property>
              </widget>
             </item>
