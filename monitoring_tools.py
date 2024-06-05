@@ -29,7 +29,7 @@ from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferen
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar, QProgressDialog
-from PyQt5.QtWidgets import QMessageBox, QWidget
+from PyQt5.QtWidgets import QMessageBox, QWidget, QComboBox
 from PyQt5.QtCore import QVariant, Qt,QFileInfo
 from shapely import Polygon, unary_union, LineString, MultiLineString, Point, MultiPoint
 
@@ -46,6 +46,7 @@ import os
 from qgis.core import QgsVectorFileWriter, QgsVectorLayer, QgsProject, QgsProcessingFeedback, QgsApplication, QgsProcessingContext
 from qgis.PyQt.QtCore import QFileInfo
 
+from datetime import datetime
 import geopandas as gpd
 from shapely.wkt import loads
 from shapely.geometry import MultiPolygon
@@ -112,7 +113,7 @@ class MonitoringTools:
         self.pluginIsActive = False
         self.dockwidget = None
 
-
+        self.selected_year = datetime.now().year  # Initialize with the current year
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -319,16 +320,24 @@ class MonitoringTools:
             field_names = [field.name() for field in layer.fields()]
             self.dockwidget.comboBoxFieldsName.addItems(field_names)
 
-    def comboBoxYearSelectAction(self):
-        # Populate QComboBox with years from 2023 to 2032
-        year_list = list(range(2023, 2033))
-        self.dockwidget.comboBoxYear.addItems([str(year) for year in year_list])
-
-        # Set default year as the current year
+    def populate_year_combobox(self):
+        # Populate the combo box and set the current year as default.
         current_year = datetime.now().year
-        if current_year in year_list:
-            index = year_list.index(current_year)
+        start_year = 2023
+        end_year = 2032
+        # Clear any existing items
+        self.dockwidget.comboBoxYear.clear()
+        # Add the years to the combo box
+        for year in range(start_year, end_year + 1):
+            self.dockwidget.comboBoxYear.addItem(str(year))
+        # Set the current year as the default selected item
+        index = self.dockwidget.comboBoxYear.findText(str(current_year))
+        if index != -1:
             self.dockwidget.comboBoxYear.setCurrentIndex(index)
+
+    def update_selected_year(self):
+        """Update the selected year when the combo box changes."""
+        self.selected_year = int(self.dockwidget.comboBoxYear.currentText())
 
     # T_0101
     def generatePointLayer(self):
@@ -715,7 +724,6 @@ class MonitoringTools:
 
 
     # T_0105
-    # !!!Remember to change year, now: 2023
     def asign_n2000_to_dbase(self):
 
 
@@ -933,7 +941,7 @@ class MonitoringTools:
                 n2000 = feat[column_n2000]
 
                 stanowisko_value = area_id
-                rok_value = 2024
+                rok_value = self.selected_year
 
                 forma_ochrony_przyrody_cd_value = n2000
 
@@ -1351,21 +1359,6 @@ class MonitoringTools:
         # QgsProject.instance().addMapLayer(merge_layer)
 
 
-        # 04 AGREGATE
-        # result = processing.run("native:dissolve", {
-        #     'INPUT': merge_layer,
-        #     'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
-        # dissolve_layer = result['OUTPUT']
-        # dissolve_layer.setName('bledy_zasiegu')
-
-
-        # Disolve by ID_STAN and N2000 layer
-        # result = processing.run("native:dissolve", {
-        #     'INPUT': common_part_layer,
-        #     'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
-        # dissolve_layer = result['OUTPUT']
-        # dissolve_layer.setName('stanowisko_n2000')
-
         result = processing.run("native:dissolve", {
             'INPUT': merge_layer,
             'FIELD': [field_name, 'rez_przyr'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
@@ -1518,7 +1511,7 @@ class MonitoringTools:
 
 
                 stanowisko_value = area_id
-                rok_value = 2024
+                rok_value = self.selected_year
 
                 forma_ochrony_przyrody_cd_value = None
 
@@ -1557,8 +1550,6 @@ class MonitoringTools:
         # Add layers to project
         # QgsProject.instance().addMapLayer(common_part_layer)
         # QgsProject.instance().addMapLayer(dissolve_layer)
-
-
 
     # C_0101
     def numeration_validating_map(self):
@@ -1601,7 +1592,6 @@ class MonitoringTools:
             self.appendDataToLabel("Wszystkie powierzchnie w warstwie zanumerowano poprawnie.", self.dockwidget.label_info)
             self.generate_csv_reports("Błędnie zanumerowane powierzchnie w warstwie - brak", ["ID_STANOWISKA"],invalid_numbers_layer, "monitoring_gis_tools_raporty_kontroli", "0101_wykaz_blednie_zan_powierzchni_mapa_OK.csv")
             self.dockwidget.pushButtonNumerationValidatingLayer.setStyleSheet('QPushButton {background-color: #3cb371}')
-
 
     # C_0102
     def control_duplicates(self):
@@ -1767,9 +1757,6 @@ class MonitoringTools:
             'FIELD': [field_name, 'kod_n2000'], 'SEPARATE_DISJOINT': False, 'OUTPUT': 'memory:'})
         dissolve_layer = result['OUTPUT']
         dissolve_layer.setName('bledy_zasiegu')
-
-
-
         # 05 CALCULATE AREA
         AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "AREA_HA", QVariant.Double)
         AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "DUPLICATE", QVariant.Int)
@@ -1779,7 +1766,6 @@ class MonitoringTools:
         field_duplicate = layer_fields.indexFromName("DUPLICATE")
         features_of_layer = dissolve_layer.getFeatures()
         field_area_id = dissolve_layer.fields().indexFromName(field_name)
-
 
         for f in features_of_layer:
             id = f.id()
@@ -1793,7 +1779,6 @@ class MonitoringTools:
             layer_provider.changeAttributeValues({id: attr_value_subarea})
             # area_list_from_layer.append(feat[field_area_id])
             # list_of_subarea.append(area)
-
 
         # 06 FIND DUPLICATES
         # Create a dictionary to store the count of each attribute value
@@ -1812,7 +1797,6 @@ class MonitoringTools:
         # Identify duplicate attribute values
         duplicate_values = [value for value, count in attribute_count.items() if count > 1]
 
-
         if len(duplicate_values) == 0:
             self.appendDataToLabel('Brak obiektów o błędnym zasięgu w odniesieniu do obszarów Natura 2000', self.dockwidget.label_info)
             CustomMessageBox.showWithTimeout(5, 'Brak obiektów o błędnym zasięgu w odniesieniu do obszarów Natura 2000', "", icon=QMessageBox.Information)
@@ -1826,7 +1810,6 @@ class MonitoringTools:
                 self.appendDataToLabel(str(duplicate_value), self.dockwidget.label_warning)
             self.generate_csv_reports('Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do obszarów Natura 2000', ["ID_STANOWISKA"],duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0103_bledny_zasieg_N2000.csv")
             self.dockwidget.pushButton_control_n2000_extent.setStyleSheet('QPushButton {background-color: #ff0000}')
-
 
         # Iterate through features again to identify features with duplicate values
         for feature in dissolve_layer.getFeatures():
@@ -1885,7 +1868,6 @@ class MonitoringTools:
         QgsProject.instance().addMapLayer(common_part_layer)
         QgsProject.instance().addMapLayer(difference_layer)
         QgsProject.instance().addMapLayer(dissolve_layer)
-
 
     # C_0104
     def control_nat_reserve_extent(self):
@@ -1912,8 +1894,6 @@ class MonitoringTools:
         self.removeMapLayerByName('poza_rezerwatem')
         self.removeMapLayerByName('w_poza_rezerwatem')
 
-
-
         self.clear_info_labels()
 
         #Get n2000 - layer
@@ -1929,21 +1909,17 @@ class MonitoringTools:
             CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
             return False
 
-
         field_name = self.dockwidget.comboBoxFieldsName.currentText()
         field_area_id = layer.fields().indexFromName(field_name)
-
 
         # 01 REPAIR GEOMETRY
         result = processing.run("native:fixgeometries", {'INPUT': layer, 'OUTPUT': 'memory:'})
         repair_geom_user_layer = result['OUTPUT']
 
-
         reserve_layer = self.iface.addVectorLayer(geopackage_path, "rezerwaty_PL", "ogr")
         reserve_layer.setCrs(QgsCoordinateReferenceSystem(crs))
         if not reserve_layer:
             print("Layer failed to load!")
-
 
         # 01 INTERSECT (COMMON PART)
         result = processing.run("native:intersection", {
@@ -1955,9 +1931,6 @@ class MonitoringTools:
         common_part_layer.setName('w_rezerwacie')
         QgsProject.instance().addMapLayer(common_part_layer)
 
-
-
-
         # 02 ROZNICA
         result = processing.run("native:difference", {
             'INPUT': repair_geom_user_layer,
@@ -1968,13 +1941,11 @@ class MonitoringTools:
         difference_layer.setName('poza_rezerwatem')
         QgsProject.instance().addMapLayer(difference_layer)
 
-
         # 03 MERGE
         result = processing.run("native:mergevectorlayers", {'LAYERS': [common_part_layer, difference_layer], 'CRS': None, 'OUTPUT': 'memory:'})
         merge_layer = result['OUTPUT']
         merge_layer.setName('w_poza_rezerwatem')
         QgsProject.instance().addMapLayer(merge_layer)
-
 
         # 04 AGREGATE
         result = processing.run("native:dissolve", {
@@ -1983,8 +1954,6 @@ class MonitoringTools:
         dissolve_layer = result['OUTPUT']
         dissolve_layer.setName('bledy_zasiegu')
         QgsProject.instance().addMapLayer(dissolve_layer)
-
-
 
         # 05 CALCULATE AREA
         AtributeTableManager.addNewColumnToLayerByLayerInstance(self, dissolve_layer, "AREA_HA", QVariant.Double)
@@ -1995,7 +1964,6 @@ class MonitoringTools:
         field_duplicate = layer_fields.indexFromName("DUPLICATE")
         features_of_layer = dissolve_layer.getFeatures()
         field_area_id = dissolve_layer.fields().indexFromName(field_name)
-
 
         for f in features_of_layer:
             id = f.id()
@@ -2009,7 +1977,6 @@ class MonitoringTools:
             layer_provider.changeAttributeValues({id: attr_value_subarea})
             # area_list_from_layer.append(feat[field_area_id])
             # list_of_subarea.append(area)
-
 
         # 06 FIND DUPLICATES
         # Create a dictionary to store the count of each attribute value
@@ -2028,7 +1995,6 @@ class MonitoringTools:
         # Identify duplicate attribute values
         duplicate_values = [value for value, count in attribute_count.items() if count > 1]
 
-
         if len(duplicate_values) == 0:
             self.appendDataToLabel('Brak obiektów o błędnym zasięgu w odniesieniu do rezerwatów', self.dockwidget.label_info)
             CustomMessageBox.showWithTimeout(5, 'Brak obiektów o błędnym zasięgu w odniesieniu do rezerwatów', "", icon=QMessageBox.Information)
@@ -2042,7 +2008,6 @@ class MonitoringTools:
                 self.appendDataToLabel(str(duplicate_value), self.dockwidget.label_warning)
             self.generate_csv_reports('Warstwa zawiera obiekty o błędnym zasięgu w odniesieniu do rezerwatów przyrody', ["ID_STANOWISKA"],duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0104_bledny_zasieg_rererwaty.csv")
             self.dockwidget.pushButton_control_nat_reserve_extent.setStyleSheet('QPushButton {background-color: #ff0000}')
-
 
         # Iterate through features again to identify features with duplicate values
         for feature in dissolve_layer.getFeatures():
@@ -2098,38 +2063,109 @@ class MonitoringTools:
         dissolve_layer.deleteSelectedFeatures()
         dissolve_layer.commitChanges()
 
-
     # C_0105
+
+    # def find_overlaps(self):
+    #     self.clear_info_labels()
+    #
+    #     layer = self.getLayer()
+    #     if not layer.isValid():
+    #         print(f"Layer '{layer}' is not valid.")
+    #         CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+    #         return False
+    #
+    #     AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ID", QVariant.Int)
+    #     AtributeTableManager.recalculateIDInColumnByLayerInstance(self, layer, "ID", 0)
+    #
+    #     result = processing.run("native:union",
+    #                             {'INPUT': layer, 'OVERLAY': layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
+    #                              'GRID_SIZE': None})
+    #     unionLayer = result['OUTPUT']
+    #
+    #     unionLayer.selectByExpression('"ID" <> "ID_2"')
+    #
+    #     layer.triggerRepaint()
+    #     unionLayer.invertSelection()
+    #     unionLayer.startEditing()
+    #     unionLayer.deleteSelectedFeatures()
+    #     unionLayer.commitChanges()
+    #
+    #     unionLayer.setName('nalozenia_overlaps')
+    #     QgsProject.instance().addMapLayer(unionLayer)
 
     def find_overlaps(self):
         self.clear_info_labels()
 
+        # Get the layer
         layer = self.getLayer()
         if not layer.isValid():
             print(f"Layer '{layer}' is not valid.")
             CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
             return False
 
-        AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ID", QVariant.Int)
-        AtributeTableManager.recalculateIDInColumnByLayerInstance(self, layer, "ID", 0)
+        # Create a new memory layer to store overlaps
+        overlaps_layer = QgsVectorLayer("MultiPolygon?crs=epsg:2180", "overlaps", "memory")
 
-        result = processing.run("native:union",
-                                {'INPUT': layer, 'OVERLAY': layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
-                                 'GRID_SIZE': None})
-        unionLayer = result['OUTPUT']
+        # Start editing the new layer
+        overlaps_layer.startEditing()
 
-        unionLayer.selectByExpression('"ID" <> "ID_2"')
+        # Add fields to the new layer (copy fields from the source layer)
+        overlaps_layer_fields = layer.fields()
+        overlaps_layer_data_provider = overlaps_layer.dataProvider()
+        overlaps_layer_data_provider.addAttributes(overlaps_layer_fields)
 
-        layer.triggerRepaint()
-        unionLayer.invertSelection()
-        unionLayer.startEditing()
-        unionLayer.deleteSelectedFeatures()
-        unionLayer.commitChanges()
+        # Update the fields
+        overlaps_layer.updateFields()
 
-        unionLayer.setName('nalozenia_overlaps')
-        QgsProject.instance().addMapLayer(unionLayer)
+        # Loop through each feature
+        for i in range(layer.featureCount()):
+            feature1 = layer.getFeature(i)
 
+            # Get the geometry of feature 1
+            geometry1 = feature1.geometry()
 
+            # Loop through the remaining features
+            for j in range(i + 1, layer.featureCount()):
+                feature2 = layer.getFeature(j)
+
+                # Get the geometry of feature 2
+                geometry2 = feature2.geometry()
+
+                # Check for overlap
+                if geometry1.intersects(geometry2):
+                    # Compute the intersection of the geometries
+                    intersection_geometry = geometry1.intersection(geometry2)
+
+                    # Filter out non-polygon/multipolygon geometries
+                    if intersection_geometry.wkbType() in [3, 6]:  # Polygon or Multipolygon
+                        # If the intersection geometry is a GeometryCollection
+                        if intersection_geometry.wkbType() == 7:
+                            # Iterate through each geometry in the collection
+                            for sub_geometry in intersection_geometry.asGeometryCollection():
+                                # Check if the geometry is a polygon or multipolygon
+                                if sub_geometry.wkbType() in [3, 6]:
+                                    # Create a new feature with the polygon/multipolygon geometry
+                                    new_feature = QgsFeature()
+                                    new_feature.setGeometry(sub_geometry)
+                                    new_feature.setAttributes(
+                                        feature1.attributes())  # You can choose which attributes to keep
+
+                                    # Add the new feature to the new layer
+                                    overlaps_layer.addFeature(new_feature)
+                        else:
+                            # Create a new feature with the intersection geometry
+                            new_feature = QgsFeature()
+                            new_feature.setGeometry(intersection_geometry)
+                            new_feature.setAttributes(feature1.attributes())  # You can choose which attributes to keep
+
+                            # Add the new feature to the new layer
+                            overlaps_layer.addFeature(new_feature)
+
+        # Commit changes to the new layer
+        overlaps_layer.commitChanges()
+
+        # Add the new layer to the project
+        QgsProject.instance().addMapLayer(overlaps_layer)
 
     def find_gaps(self):
 
@@ -3108,7 +3144,7 @@ class MonitoringTools:
                     stanowisko_nr, rok = data
                 else:
                     stanowisko_nr = data
-                    rok = 2023
+                    rok = self.selected_year
 
                 # print(f"Executing query for stanowisko_nr: {stanowisko_nr}, rok: {rok}")
 
@@ -3203,28 +3239,6 @@ class MonitoringTools:
         return control_models
 
 
-    # def main():
-    #     database = "path_to_your_database.db"
-    #
-    #     # create a database connection
-    #     conn = create_connection(database)
-    #
-    #     with conn:
-    #         error_code = 'E001'  # Example error code to query
-    #         print(f"Query control models with error_code={error_code}")
-    #         control_models = select_control_models_by_error_code(conn, error_code)
-    #
-    #         for model in control_models:
-    #             print(model.__dict__)  # Print the dictionary representation of the model
-    #
-    # if __name__ == '__main__':
-    #     main()
-
-        # map_layers = QgsProject.instance().mapLayers()
-        # if layer_name in map_layers:
-        #     layerByName = QgsProject.instance().mapLayersByName(layer_name)[0]
-        #     QgsProject.instance().removeMapLayer(layerByName.id())
-
     #--------------------------------------------------------------------------
     def run(self):
         """Run method that loads and starts the plugin"""
@@ -3248,6 +3262,12 @@ class MonitoringTools:
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
 
             self.comboBoxAraesPolygonSelectAction()
+
+            # Populate year combo box
+            self.populate_year_combobox()
+
+            # Connect the combo box signal to update the selected year
+            self.dockwidget.comboBoxYear.currentIndexChanged.connect(self.update_selected_year)
 
             # Odświeżanie ostatnio wykorzystanych ścieżek
             self.dBaseDirectoryLoad()
