@@ -24,38 +24,29 @@
 from typing import List
 
 from qgis import processing, PyQt
-from qgis.core import QgsLayerTreeLayer, QgsPoint, QgsPointLocator, QgsSnappingConfig, QgsSnappingUtils, QgsTolerance, QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
-from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferenceSystem,QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils
+from qgis.core import QgsFeature, QgsDistanceArea, QgsUnitTypes, QgsLayerTreeLayer, QgsPoint, QgsPointLocator, QgsSnappingConfig, QgsSnappingUtils, QgsTolerance, QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
+from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferenceSystem,QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils, QgsVectorFileWriter, QgsVectorLayer, QgsProject, QgsProcessingFeedback, QgsApplication, QgsProcessingContext
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar, QProgressDialog
-from PyQt5.QtWidgets import QMessageBox, QWidget, QComboBox
+from PyQt5.QtWidgets import QMessageBox, QWidget
 from PyQt5.QtCore import QVariant, Qt,QFileInfo
-from shapely import Polygon, unary_union, LineString, MultiLineString, Point, MultiPoint
-
 
 from .control_model import ControlModel
 from .TimerMessageBox import CustomMessageBox
 # Initialize Qt resources from file resources.py
 from .resources import *
 
-from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsVectorDataProvider, QgsField, QgsRectangle, \
-    QgsMapLayerProxyModel, QgsProcessing
+from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsVectorDataProvider, QgsField, QgsRectangle, QgsMapLayerProxyModel, QgsProcessing
 
 import os
-from qgis.core import QgsVectorFileWriter, QgsVectorLayer, QgsProject, QgsProcessingFeedback, QgsApplication, QgsProcessingContext
-from qgis.PyQt.QtCore import QFileInfo
+import subprocess
+import sys
 
 from datetime import datetime
 import geopandas as gpd
-from shapely.wkt import loads
 from shapely.geometry import MultiPolygon
-from qgis.core import QgsFeature
-
-from matplotlib import pyplot as plt
-
-from osgeo import gdal, ogr
-
+from shapely import Polygon, MultiLineString, Point, MultiPoint
 
 from .atribute_table_manager import AtributeTableManager
 
@@ -69,7 +60,6 @@ from datetime import datetime
 
 from qgis.core import QgsRasterLayer, QgsRasterBandStats
 from qgis.analysis import QgsRasterCalculator, QgsRasterCalculatorEntry
-
 
 
 class MonitoringTools:
@@ -2104,7 +2094,7 @@ class MonitoringTools:
             return False
 
         # Create a new memory layer to store overlaps
-        overlaps_layer = QgsVectorLayer("MultiPolygon?crs=epsg:2180", "overlaps", "memory")
+        overlaps_layer = QgsVectorLayer("MultiPolygon?crs=epsg:2180", "Nakładki_overlaps", "memory")
 
         # Start editing the new layer
         overlaps_layer.startEditing()
@@ -2117,49 +2107,71 @@ class MonitoringTools:
         # Update the fields
         overlaps_layer.updateFields()
 
+        # Function to handle adding intersection geometries to the overlaps layer
+        def add_intersections_to_layer(intersection_geometry, attributes):
+            if intersection_geometry.wkbType() == QgsWkbTypes.GeometryCollection:
+                for sub_geometry in intersection_geometry.asGeometryCollection():
+                    if sub_geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
+                        new_feature = QgsFeature()
+                        new_feature.setGeometry(sub_geometry)
+                        new_feature.setAttributes(attributes)
+                        overlaps_layer.addFeature(new_feature)
+            elif intersection_geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
+                new_feature = QgsFeature()
+                new_feature.setGeometry(intersection_geometry)
+                new_feature.setAttributes(attributes)
+                overlaps_layer.addFeature(new_feature)
+
+        # Create a progress dialog
+        total_features = layer.featureCount()
+        progress_dialog = QProgressDialog("Szukam nakładek...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
         # Loop through each feature
-        for i in range(layer.featureCount()):
-            feature1 = layer.getFeature(i)
+        feature_ids = list(layer.allFeatureIds())
+        for index, feature1_id in enumerate(feature_ids):
+            feature1 = layer.getFeature(feature1_id)
+
+            # Update progress
+            progress_dialog.setValue(index)
+            if progress_dialog.wasCanceled():
+                break
 
             # Get the geometry of feature 1
             geometry1 = feature1.geometry()
 
-            # Loop through the remaining features
-            for j in range(i + 1, layer.featureCount()):
-                feature2 = layer.getFeature(j)
+            # Check for self-overlaps within the same feature
+            if geometry1.isMultipart():
+                geometries1 = geometry1.asGeometryCollection()
+                for i in range(len(geometries1)):
+                    for j in range(i + 1, len(geometries1)):
+                        if geometries1[i].intersects(geometries1[j]):
+                            intersection_geometry = geometries1[i].intersection(geometries1[j])
+                            add_intersections_to_layer(intersection_geometry, feature1.attributes())
+            else:
+                if geometry1.intersects(geometry1):
+                    intersection_geometry = geometry1.intersection(geometry1)
+                    add_intersections_to_layer(intersection_geometry, feature1.attributes())
 
+            # Loop through the remaining features
+            for feature2_id in feature_ids[index + 1:]:
+                feature2 = layer.getFeature(feature2_id)
                 # Get the geometry of feature 2
                 geometry2 = feature2.geometry()
 
-                # Check for overlap
-                if geometry1.intersects(geometry2):
-                    # Compute the intersection of the geometries
-                    intersection_geometry = geometry1.intersection(geometry2)
+                # Iterate through parts if it's a multipart geometry
+                if geometry2.isMultipart():
+                    geometries2 = geometry2.asGeometryCollection()
+                else:
+                    geometries2 = [geometry2]
 
-                    # Filter out non-polygon/multipolygon geometries
-                    if intersection_geometry.wkbType() in [3, 6]:  # Polygon or Multipolygon
-                        # If the intersection geometry is a GeometryCollection
-                        if intersection_geometry.wkbType() == 7:
-                            # Iterate through each geometry in the collection
-                            for sub_geometry in intersection_geometry.asGeometryCollection():
-                                # Check if the geometry is a polygon or multipolygon
-                                if sub_geometry.wkbType() in [3, 6]:
-                                    # Create a new feature with the polygon/multipolygon geometry
-                                    new_feature = QgsFeature()
-                                    new_feature.setGeometry(sub_geometry)
-                                    new_feature.setAttributes(
-                                        feature1.attributes())  # You can choose which attributes to keep
-
-                                    # Add the new feature to the new layer
-                                    overlaps_layer.addFeature(new_feature)
-                        else:
-                            # Create a new feature with the intersection geometry
-                            new_feature = QgsFeature()
-                            new_feature.setGeometry(intersection_geometry)
-                            new_feature.setAttributes(feature1.attributes())  # You can choose which attributes to keep
-
-                            # Add the new feature to the new layer
-                            overlaps_layer.addFeature(new_feature)
+                # Check for overlap between parts of both geometries
+                for part1 in (geometry1.asGeometryCollection() if geometry1.isMultipart() else [geometry1]):
+                    for part2 in geometries2:
+                        if part1.intersects(part2):
+                            intersection_geometry = part1.intersection(part2)
+                            add_intersections_to_layer(intersection_geometry, feature1.attributes())
 
         # Commit changes to the new layer
         overlaps_layer.commitChanges()
@@ -2167,93 +2179,252 @@ class MonitoringTools:
         # Add the new layer to the project
         QgsProject.instance().addMapLayer(overlaps_layer)
 
-    def find_gaps(self):
+        # Ensure the progress dialog reaches 100%
+        progress_dialog.setValue(total_features)
 
-        # self.clear_info_labels()
-        #
-        # layer = self.getLayer()
-        # if not layer.isValid():
-        #     print(f"Layer '{layer}' is not valid.")
-        #     CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
-        #     return False
-        #
-        # # Make extent of layer
-        # result = processing.run("native:polygonfromlayerextent", {'INPUT': layer, 'ROUND_TO': 0, 'OUTPUT': 'memory:'})
-        # extent_layer = result['OUTPUT']
-        #
-        # # make symetrical difference
-        # result = processing.run("native:symmetricaldifference", {'INPUT': layer, 'OVERLAY': extent_layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:', 'GRID_SIZE': None})
-        # symmetrical_difference_layer = result['OUTPUT']
-        #
-        # # Explode multipart
-        # result = processing.run("native:multiparttosingleparts", {'INPUT': symmetrical_difference_layer, 'OUTPUT': 'memory:'})
-        # difference_layer_exploaded = result['OUTPUT']
-        #
-        # # Calculate area
-        # AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "AREA_HA", QVariant.Double)
-        # layer_provider = difference_layer_exploaded.dataProvider()
-        # column_area = difference_layer_exploaded.fields().indexFromName("AREA_HA")
-        # for f in difference_layer_exploaded.getFeatures():
-        #     id = f.id()
-        #     geom = f.geometry()
-        #     area = geom.area() / 10000
-        #     area = round(area, 2)
-        #     attr_value_subarea = {column_area: area}
-        #     layer_provider.changeAttributeValues({id: attr_value_subarea})
-        # difference_layer_exploaded.commitChanges()
-        #
-        # # Remove the feature with the maximum 'AREA_HA'
-        # max_area_feature = max(difference_layer_exploaded.getFeatures(QgsFeatureRequest().setFlags(QgsFeatureRequest.NoGeometry)),key=lambda f: f['AREA_HA'])
-        # difference_layer_exploaded.startEditing()
-        # difference_layer_exploaded.deleteFeature(max_area_feature.id())
-        # difference_layer_exploaded.commitChanges()
-        #
-        # AtributeTableManager.addNewColumnToLayerByLayerInstance(self, difference_layer_exploaded, "ID", QVariant.Int)
-        # AtributeTableManager.recalculateIDInColumnByLayerInstance(self, difference_layer_exploaded, "ID", 0)
-        # AtributeTableManager.removeEachColumnExeptDeclaredByLayerInstance(self, difference_layer_exploaded, ["ID",'AREA_HA'] )
-        #
-        # difference_layer_exploaded.setName('dziury_gaps')
-        # QgsProject.instance().addMapLayer(difference_layer_exploaded)
+    def find_gaps(self, cluster_tolerance=0.001):
         self.clear_info_labels()
 
+        # Get the layer
         layer = self.getLayer()
         if not layer.isValid():
             print(f"Layer '{layer}' is not valid.")
             CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
             return False
 
-        # Run the "native:extractbylocation" algorithm to select features that have gaps between them
-        result = processing.run("native:extractbylocation",
-                                {'INPUT': layer, 'PREDICATE': [6], 'INTERSECT': layer, 'OUTPUT': 'memory:'})
-        gapLayer = result['OUTPUT']
+        # Create a new memory layer to store gap points
+        gaps_layer = QgsVectorLayer("Point?crs=epsg:2180", "Szczeliny_gaps", "memory")
 
-        gapLayer.setName('inter_feature_gaps')
-        QgsProject.instance().addMapLayer(gapLayer)
+        # Start editing the new layer
+        gaps_layer.startEditing()
 
-        # self.clear_info_labels()
-        #
-        # layer = self.getLayer()
-        # if not layer.isValid():
-        #     print(f"Layer '{layer}' is not valid.")
-        #     CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
-        #     return False
-        #
-        # result = processing.run("qgis:checkvalidity",
-        #                         {'INPUT_LAYER': layer,
-        #                          'METHOD': 2, 'IGNORE_RING_SELF_INTERSECTION': False, 'VALID_OUTPUT': 'memory:',
-        #                          'INVALID_OUTPUT': 'memory:', 'ERROR_OUTPUT': 'memory:'})
-        #
-        # valid_layer = result['VALID_OUTPUT']
-        # invalid_layer = result['INVALID_OUTPUT']
-        # error_layer = result['ERROR_OUTPUT']
-        #
-        # valid_layer.setName('Warstwa z poprawnymi obiektami')
-        # QgsProject.instance().addMapLayer(valid_layer)
-        # invalid_layer.setName('Warstwa z niepoprawnymi obiektami')
-        # QgsProject.instance().addMapLayer(invalid_layer)
-        # error_layer.setName('Blędy')
-        # QgsProject.instance().addMapLayer(error_layer)
+        # Add fields to the new layer
+        fields = [QgsField("id", QVariant.Int), QgsField("cluster_tolerance", QVariant.Double),
+                  QgsField("area", QVariant.Double)]
+        gaps_layer_data_provider = gaps_layer.dataProvider()
+        gaps_layer_data_provider.addAttributes(fields)
+        gaps_layer.updateFields()
 
+        # Get the map units of the layer's CRS
+        crs_map_units = layer.crs().mapUnits()
+
+        # Convert the cluster tolerance to the units of the layer's CRS map units
+        if crs_map_units != QgsUnitTypes.DistanceMeters:
+            cluster_tolerance = QgsUnitTypes.convertMeasurement(cluster_tolerance, QgsUnitTypes.UnitType(0),
+                                                                crs_map_units)
+
+
+        # Create a progress dialog
+        total_features = layer.featureCount()
+        progress_dialog = QProgressDialog("Szukam szczelin...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
+        # Collect all geometries to union them
+        geometries = []
+        for index, feature in enumerate(layer.getFeatures()):
+            # Update progress
+            progress_dialog.setValue(index)
+            QCoreApplication.processEvents()  # Process GUI events
+            if progress_dialog.wasCanceled():
+                break
+            geometries.append(feature.geometry())
+
+        # Perform union of all geometries
+        if not geometries:
+            return False
+
+        union_geometry = geometries[0]
+        for geometry in geometries[1:]:
+            union_geometry = union_geometry.combine(geometry)
+
+        # Get the bounding box of the union geometry
+        bbox = union_geometry.boundingBox()
+        bbox_polygon = QgsGeometry.fromRect(bbox)
+
+        # Subtract the union geometry from the bounding box to find gaps
+        gaps_geometry = bbox_polygon.difference(union_geometry)
+
+        # Function to add gap centroids to the gaps layer with cluster tolerance consideration
+        # Function to add gap centroids to the gaps layer with cluster tolerance and area attributes
+        def add_gap_centroids_to_layer(geometry):
+            if geometry.isMultipart():
+                for sub_geometry in geometry.asGeometryCollection():
+                    if sub_geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
+                        if sub_geometry.area() < cluster_tolerance:
+                            continue
+                        centroid = sub_geometry.centroid()
+                        if centroid.isEmpty():
+                            continue
+                        new_feature = QgsFeature()
+                        new_feature.setGeometry(centroid)
+                        new_feature.setAttributes([1, cluster_tolerance, sub_geometry.area()])  # Set attributes
+                        gaps_layer.addFeature(new_feature)
+            elif geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
+                if geometry.area() < cluster_tolerance:
+                    return
+                centroid = geometry.centroid()
+                if centroid.isEmpty():
+                    return
+                new_feature = QgsFeature()
+                new_feature.setGeometry(centroid)
+                new_feature.setAttributes([1, cluster_tolerance, geometry.area()])  # Set attributes
+                gaps_layer.addFeature(new_feature)
+
+        # Add the centroids of the gaps to the gaps layer
+        add_gap_centroids_to_layer(gaps_geometry)
+
+        # Commit changes to the new layer
+        gaps_layer.commitChanges()
+
+        # Add the new layer to the project
+        QgsProject.instance().addMapLayer(gaps_layer)
+
+    def break_multiparts_and_filter(self, area_threshold=0.01):
+        self.clear_info_labels()
+
+        # Get the layer
+        layer = self.getLayer()
+        if not layer.isValid():
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+
+        # Create a new memory layer to store the filtered polygons
+        filtered_layer = QgsVectorLayer("Polygon?crs=epsg:2180", "Poligony poniżej 0,01ha", "memory")
+
+        # Start editing the new layer
+        filtered_layer.startEditing()
+
+        # Add fields to the new layer
+        fields = [QgsField("id", QVariant.Int), QgsField("area_ha", QVariant.Double)]
+        filtered_layer_data_provider = filtered_layer.dataProvider()
+        filtered_layer_data_provider.addAttributes(fields)
+        filtered_layer.updateFields()
+
+        # Create a progress dialog
+        total_features = layer.featureCount()
+        progress_dialog = QProgressDialog("Szukam małych poligonów...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
+        # Process each feature in the input layer
+        for index, feature in enumerate(layer.getFeatures()):
+            # Update progress
+            progress_dialog.setValue(index)
+            if progress_dialog.wasCanceled():
+                break
+
+            geometry = feature.geometry()
+            if geometry.isMultipart():
+                for part in geometry.asMultiPolygon():
+                    for polygon in part:
+                        area = QgsGeometry.fromPolygonXY(
+                            [polygon]).area() / 10000  # Convert area from square meters to hectares
+                        if area <= area_threshold:
+                            new_feature = QgsFeature()
+                            new_feature.setGeometry(QgsGeometry.fromPolygonXY([polygon]))
+                            new_feature.setAttributes([feature.id(), area])
+                            filtered_layer.addFeature(new_feature)
+            else:
+                area = geometry.area() / 10000  # Convert area from square meters to hectares
+                if area <= area_threshold:
+                    new_feature = QgsFeature()
+                    new_feature.setGeometry(geometry)
+                    new_feature.setAttributes([feature.id(), area])
+                    filtered_layer.addFeature(new_feature)
+
+        # Commit changes to the new layer
+        filtered_layer.commitChanges()
+
+        # Add the new layer to the project
+        QgsProject.instance().addMapLayer(filtered_layer)
+
+        # Finalize progress dialog
+        progress_dialog.setValue(total_features)
+
+        return True
+
+    def calculate_distance_between_polygon_parts(self):
+        # Get the selected field name
+        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+
+        # Get the layer
+        layer = self.getLayer()
+        if not layer.isValid():
+            CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+            return False
+
+        # Create a new memory layer to store the results
+        result_layer = QgsVectorLayer("Polygon?crs=epsg:2180", "Odległości części multipoigonów", "memory")
+
+        # Start editing the new layer
+        result_layer.startEditing()
+
+        # Add fields to the new layer
+        fields = [QgsField("feature_id", QVariant.Int), QgsField("odleglosc", QVariant.Double),
+                  QgsField(field_name, QVariant.String)]
+        result_layer_data_provider = result_layer.dataProvider()
+        result_layer_data_provider.addAttributes(fields)
+        result_layer.updateFields()
+
+        # Create a progress dialog
+        total_features = layer.featureCount()
+        progress_dialog = QProgressDialog("Obliczam odległości...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
+        # Process each feature in the input layer
+        for index, feature in enumerate(layer.getFeatures()):
+            # Update progress
+            progress_dialog.setValue(index)
+            if progress_dialog.wasCanceled():
+                break
+
+            # Get the value of the selected field
+            field_value = feature[field_name]
+
+            # Extract multipolygon geometry
+            geometry = feature.geometry()
+            if geometry.isMultipart():
+                # Group parts by their multipolygon number
+                parts_by_number = {}
+                for part in geometry.asMultiPolygon():
+                    polygon = QgsGeometry.fromPolygonXY(part)  # No need for extra list
+                    parts_by_number.setdefault(field_value, []).append(polygon)
+
+                # Calculate distances within each group
+                for part_list in parts_by_number.values():
+                    for i, polygon1 in enumerate(part_list):
+                        min_distance = float('inf')
+                        for j, polygon2 in enumerate(part_list):
+                            if i != j:
+                                distance = polygon1.distance(polygon2)
+                                min_distance = min(min_distance, distance)
+                        # Check if the distance is neither 0 nor "inf"
+                        if min_distance != 0 and min_distance != float('inf'):
+                            # Create a new feature with the minimum distance
+                            new_feature = QgsFeature()
+                            new_feature.setGeometry(polygon1)
+                            new_feature.setAttributes([feature.id(), min_distance, field_value])  # Include field value
+                            result_layer.addFeature(new_feature)
+            else:
+                # Single part polygon, so no need for distance calculation
+                min_distance = 0
+                new_feature = QgsFeature()
+                new_feature.setGeometry(geometry)
+                new_feature.setAttributes([feature.id(), min_distance, field_value])  # Include field value
+                result_layer.addFeature(new_feature)
+
+        # Commit changes to the new layer
+        result_layer.commitChanges()
+
+        # Add the new layer to the project
+        QgsProject.instance().addMapLayer(result_layer)
+
+        # Finalize progress dialog
+        progress_dialog.setValue(total_features)
+
+        return True
 
     # Metody kontroli -dodawane po opracowaniu SQL dla WebMonitoring
 
@@ -3261,6 +3432,38 @@ class MonitoringTools:
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
 
+            def install_package(package_name, whl_path):
+                try:
+                    __import__(package_name)
+                except ImportError:
+                    subprocess.check_call([sys.executable, '-m', 'pip', 'install', whl_path])
+
+            def resolve_external_packages():
+                dir_of_external_packages_whl = self.resolveDir("python_package_external")
+
+                # Ensure pip is installed
+                try:
+                    import pip
+                except ImportError:
+                    get_pip_path = os.path.join(dir_of_external_packages_whl.replace("\\", "/"), 'get-pip.py')
+                    with open(get_pip_path, 'r') as f:
+                        exec(f.read())
+                    import pip
+
+                # Install Geopandas
+                install_package('geopandas',
+                                os.path.join(dir_of_external_packages_whl, 'geopandas-0.14.4-py3-none-any.whl'))
+
+                # Install Shapely
+                install_package('shapely',
+                                os.path.join(dir_of_external_packages_whl, 'shapely-2.0.4-cp312-cp312-win_amd64.whl'))
+
+                # Install PyODBC
+                install_package('pyodbc',
+                                os.path.join(dir_of_external_packages_whl, 'pyodbc-4.0.32-cp27-cp27m-win_amd64.whl'))
+
+            resolve_external_packages()
+
             self.comboBoxAraesPolygonSelectAction()
 
             # Populate year combo box
@@ -3307,7 +3510,7 @@ class MonitoringTools:
             # T_0109
             self.dockwidget.pushButton_asign_nature_reserve_to_dbase.clicked.connect(self.asign_nature_reserve_to_dbase)
 
-
+            # Geometry check-ups
             # C_0102
             self.dockwidget.pushButton_control_duplicates.clicked.connect(self.control_duplicates)
             # C_0103
@@ -3317,7 +3520,12 @@ class MonitoringTools:
             # C_0105
             self.dockwidget.pushButton_find_overlaps.clicked.connect(self.find_overlaps)
             # C_0106
-            self.dockwidget.pushButton_find_gaps.clicked.connect(self.find_gaps)
+            self.dockwidget.pushButton_find_gaps.clicked.connect(lambda: self.find_gaps())
+
+            self.dockwidget.pushButton_small_polygons.clicked.connect(self.break_multiparts_and_filter)
+
+            self.dockwidget.pushButton_multipart_distance.clicked.connect(self.calculate_distance_between_polygon_parts)
+
 
 
             # T_0301

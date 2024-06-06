@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>840</width>
-    <height>883</height>
+    <width>636</width>
+    <height>679</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>636</width>
+    <height>634</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Monitoring GIS Tools  v_1.0.7_beta</string>
@@ -20,7 +26,7 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tab_3">
          <attribute name="title">
@@ -37,289 +43,17 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>769</width>
-               <height>719</height>
+               <width>582</width>
+               <height>389</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_2">
               <item row="0" column="1">
                <layout class="QGridLayout" name="gridLayout">
-                <item row="26" column="0">
-                 <widget class="QLabel" name="label_19">
+                <item row="8" column="0">
+                 <widget class="QLabel" name="label_6">
                   <property name="text">
-                   <string>Wysokość stefy buforowej dodana do średniej wysokości stanowiska</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="25" column="1">
-                 <layout class="QHBoxLayout" name="horizontalLayout">
-                  <item>
-                   <widget class="QLineEdit" name="lineEdit_max_buffer_width">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>100</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QLabel" name="label_15">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>[m]</string>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item row="27" column="0">
-                 <widget class="QCheckBox" name="checkBox_analize_min_heigth">
-                  <property name="text">
-                   <string>Wysokość strefy buforowej dodano do minimalnej wysokości stanowiska</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="15" column="0" colspan="2">
-                 <widget class="QPushButton" name="pushButton_control_duplicates">
-                  <property name="text">
-                   <string>C_0102: Powtarzające się numery powierzchni (duplikaty)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="24" column="0">
-                 <widget class="QLabel" name="label_13">
-                  <property name="font">
-                   <font>
-                    <weight>75</weight>
-                    <bold>true</bold>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Strefy buforowe</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="2" column="0">
-                 <widget class="QLabel" name="label_2">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="text">
-                   <string>Baza danych:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="29" column="0" colspan="2">
-                 <widget class="QPushButton" name="pushButton_make_buffer_area">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="text">
-                   <string>Strefy buforowe</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="26" column="1">
-                 <layout class="QHBoxLayout" name="horizontalLayout_3">
-                  <item>
-                   <widget class="QLineEdit" name="lineEdit_additional_height">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="inputMethodHints">
-                     <set>Qt::ImhPreferNumbers</set>
-                    </property>
-                    <property name="text">
-                     <string>5</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QLabel" name="label_20">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>[m]</string>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item row="13" column="0">
-                 <widget class="QPushButton" name="pushButtonTest">
-                  <property name="text">
-                   <string>Test</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="0" colspan="2">
-                 <widget class="Line" name="line">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item row="27" column="1">
-                 <layout class="QHBoxLayout" name="horizontalLayout_2">
-                  <item>
-                   <widget class="QLineEdit" name="lineEdit_reduced_height">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="inputMethodHints">
-                     <set>Qt::ImhPreferNumbers</set>
-                    </property>
-                    <property name="text">
-                     <string>1</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
-                   <widget class="QLabel" name="label_18">
-                    <property name="text">
-                     <string>[m]</string>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-                <item row="4" column="0" colspan="2">
-                 <widget class="Line" name="line_3">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item row="14" column="0" colspan="2">
-                 <widget class="QPushButton" name="pushButtonNumerationValidatingLayer">
-                  <property name="text">
-                   <string>C_0101: Poprawność numeracji</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="28" column="1">
-                 <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox_nmt_raster"/>
-                </item>
-                <item row="18" column="0" colspan="2">
-                 <widget class="QPushButton" name="pushButton_control_nat_reserve_extent">
-                  <property name="enabled">
-                   <bool>true</bool>
-                  </property>
-                  <property name="text">
-                   <string>C_0104: Kontrola zasiegu płatów siedlisk względem rezerwatów przyrody</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="11" column="0">
-                 <widget class="QLabel" name="label_9">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <weight>75</weight>
-                    <bold>true</bold>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Kontrole:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="21" column="0">
-                 <widget class="QLabel" name="label_8">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="text">
-                   <string>Linijka została po kontrolach bazy</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="19" column="0" colspan="2">
-                 <widget class="QPushButton" name="pushButton_find_overlaps">
-                  <property name="enabled">
-                   <bool>true</bool>
-                  </property>
-                  <property name="text">
-                   <string>C_0105: Kontrola nałożeń (overlaps)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="17" column="0" colspan="2">
-                 <widget class="QPushButton" name="pushButton_control_n2000_extent">
-                  <property name="enabled">
-                   <bool>true</bool>
-                  </property>
-                  <property name="text">
-                   <string>C_0103: Kontrola zasiegu płatów siedlisk względem obszarów Natura 2000</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="20" column="0" colspan="2">
-                 <widget class="QPushButton" name="pushButton_find_gaps">
-                  <property name="enabled">
-                   <bool>true</bool>
-                  </property>
-                  <property name="text">
-                   <string>C_0106: Kontrola występowania dziur (gaps)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="5" column="0">
-                 <widget class="QLabel" name="label_3">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="text">
-                   <string>Warstwa zasięgu siedlisk:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="12" column="0">
-                 <widget class="QLabel" name="label_4">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="text">
-                   <string>Mapa:</string>
+                   <string>Nr stanowiska (id płatu):</string>
                   </property>
                  </widget>
                 </item>
@@ -336,19 +70,15 @@
                   </property>
                  </widget>
                 </item>
-                <item row="16" column="1">
-                 <widget class="QLineEdit" name="lineEdit_snap_tolerance">
+                <item row="11" column="0">
+                 <widget class="QPushButton" name="pushButtonTest">
                   <property name="text">
-                   <string>0,15</string>
+                   <string>Test</string>
                   </property>
                  </widget>
                 </item>
-                <item row="16" column="0">
-                 <widget class="QPushButton" name="pushButton_snaptool">
-                  <property name="text">
-                   <string>2. Dociagnij płaty do Rezerwatów i SOO</string>
-                  </property>
-                 </widget>
+                <item row="6" column="0" colspan="2">
+                 <widget class="QgsMapLayerComboBox" name="mMapLayerComboBoxAraesPolygon"/>
                 </item>
                 <item row="10" column="0" colspan="2">
                  <widget class="Line" name="line_2">
@@ -357,46 +87,26 @@
                   </property>
                  </widget>
                 </item>
-                <item row="6" column="0" colspan="2">
-                 <widget class="QgsMapLayerComboBox" name="mMapLayerComboBoxAraesPolygon"/>
+                <item row="9" column="1">
+                 <widget class="QComboBox" name="comboBoxYear"/>
                 </item>
-                <item row="8" column="0">
-                 <widget class="QLabel" name="label_6">
-                  <property name="text">
-                   <string>Nr stanowiska (id płatu):</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="3" column="1">
-                 <widget class="QPushButton" name="pushButton_select_dBase">
-                  <property name="text">
-                   <string>...</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="25" column="0">
-                 <widget class="QLabel" name="label_14">
+                <item row="5" column="0">
+                 <widget class="QLabel" name="label_3">
                   <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                     <horstretch>0</horstretch>
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
                   <property name="text">
-                   <string>Maksymalna szerokość strefy:</string>
+                   <string>Warstwa zasięgu siedlisk:</string>
                   </property>
                  </widget>
                 </item>
-                <item row="3" column="0">
-                 <widget class="QLineEdit" name="lineEdit_dBase_directory"/>
-                </item>
-                <item row="8" column="1">
-                 <widget class="QComboBox" name="comboBoxFieldsName"/>
-                </item>
-                <item row="28" column="0">
-                 <widget class="QLabel" name="label_16">
-                  <property name="text">
-                   <string>Raster NMT:</string>
+                <item row="4" column="0" colspan="2">
+                 <widget class="Line" name="line_3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
@@ -413,13 +123,49 @@
                   </property>
                  </widget>
                 </item>
-                <item row="9" column="1">
-                 <widget class="QComboBox" name="comboBoxYear"/>
+                <item row="8" column="1">
+                 <widget class="QComboBox" name="comboBoxFieldsName"/>
                 </item>
                 <item row="9" column="0">
                  <widget class="QLabel" name="label_7">
                   <property name="text">
                    <string>Rok monitoringu:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLineEdit" name="lineEdit_dBase_directory">
+                  <property name="font">
+                   <font>
+                    <pointsize>6</pointsize>
+                   </font>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="pushButton_select_dBase">
+                  <property name="text">
+                   <string>...</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QLabel" name="label_2">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string>Baza danych:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0" colspan="2">
+                 <widget class="Line" name="line">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
@@ -433,43 +179,12 @@
         </widget>
         <widget class="QWidget" name="tab_4">
          <attribute name="title">
-          <string>Narzędzie</string>
+          <string>Narzędzia</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_16">
           <item row="0" column="0">
            <layout class="QGridLayout" name="gridLayout_15">
-            <item row="6" column="0">
-             <widget class="QPushButton" name="pushButton_round_geometry">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="text">
-               <string>T_0107: Zaokrąglenie geometrii (1 cm)</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QPushButton" name="pushButton_rewrite_area_to_dbase">
-              <property name="text">
-               <string>T_0102: Przepisanie powierzchni do bazy</string>
-              </property>
-             </widget>
-            </item>
-            <item row="7" column="0">
-             <widget class="QPushButton" name="pushButton_prepare_structure">
-              <property name="text">
-               <string>T_0108: Struktura tabeli atrybutów warsty zasięgu płatów</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QPushButton" name="pushButton_correct_compatibility">
-              <property name="text">
-               <string>T_0104: Korekta ocen zgodności na podstawie siedl. istniejącego i siedliska wg PZO</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
+            <item row="4" column="0">
              <widget class="QPushButton" name="pushButton_add_coordinates_to_d_base">
               <property name="enabled">
                <bool>true</bool>
@@ -479,7 +194,14 @@
               </property>
              </widget>
             </item>
-            <item row="4" column="0">
+            <item row="10" column="0">
+             <widget class="QPushButton" name="pushButton_asign_nature_reserve_to_dbase">
+              <property name="text">
+               <string>T_0109: Przepisanie rezerwatów przyrody do bazy danych</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
              <widget class="QPushButton" name="pushButton_asign_n2000_to_dbase">
               <property name="text">
                <string>T_0105: Przepisanie obszarów N2000 do bazy danych</string>
@@ -487,13 +209,13 @@
              </widget>
             </item>
             <item row="5" column="0">
-             <widget class="QPushButton" name="pushButton_repair_geometryset_crs">
+             <widget class="QPushButton" name="pushButton_correct_compatibility">
               <property name="text">
-               <string>T_0106: Naprawa geometri, przypisanie układu (EPSG:2180 - CS92)</string>
+               <string>T_0104: Korekta ocen zgodności na podstawie siedl. istniejącego i siedliska wg PZO</string>
               </property>
              </widget>
             </item>
-            <item row="0" column="0">
+            <item row="2" column="0">
              <widget class="QPushButton" name="pushButton_generate_point_layer">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -518,10 +240,144 @@
               </property>
              </widget>
             </item>
-            <item row="8" column="0">
-             <widget class="QPushButton" name="pushButton_asign_nature_reserve_to_dbase">
+            <item row="9" column="0">
+             <widget class="QPushButton" name="pushButton_prepare_structure">
               <property name="text">
-               <string>T_0109: Przepisanie rezerwatów przyrody do bazy danych</string>
+               <string>T_0108: Struktura tabeli atrybutów warsty zasięgu płatów</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="pushButton_snaptool">
+              <property name="text">
+               <string>2. Dociagnij płaty do Rezerwatów i SOO</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <widget class="QPushButton" name="pushButton_repair_geometryset_crs">
+              <property name="text">
+               <string>T_0106: Naprawa geometri, przypisanie układu (EPSG:2180 - CS92)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <layout class="QHBoxLayout" name="horizontalLayout_4">
+              <item>
+               <widget class="QLineEdit" name="lineEdit_snap_tolerance">
+                <property name="text">
+                 <string>0,05</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="label_22">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>[m]</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="3" column="0">
+             <widget class="QPushButton" name="pushButton_rewrite_area_to_dbase">
+              <property name="text">
+               <string>T_0102: Przepisanie powierzchni do bazy</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QPushButton" name="pushButton_round_geometry">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>T_0107: Zaokrąglenie geometrii (1 cm)</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab">
+         <attribute name="title">
+          <string>Kontrole geometrii</string>
+         </attribute>
+         <layout class="QGridLayout" name="gridLayout_19">
+          <item row="0" column="0">
+           <layout class="QGridLayout" name="gridLayout_14">
+            <item row="0" column="0">
+             <widget class="QPushButton" name="pushButtonNumerationValidatingLayer">
+              <property name="text">
+               <string>C_0101: Poprawność numeracji</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="pushButton_control_duplicates">
+              <property name="text">
+               <string>C_0102: Powtarzające się numery powierzchni (duplikaty)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QPushButton" name="pushButton_small_polygons">
+              <property name="text">
+               <string>Kontrola małych poligonów</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QPushButton" name="pushButton_control_n2000_extent">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0103: Kontrola zasiegu płatów siedlisk względem obszarów Natura 2000</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QPushButton" name="pushButton_control_nat_reserve_extent">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0104: Kontrola zasiegu płatów siedlisk względem rezerwatów przyrody</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QPushButton" name="pushButton_find_overlaps">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0105: Kontrola nałożeń (overlaps)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
+             <widget class="QPushButton" name="pushButton_find_gaps">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>C_0106: Kontrola występowania dziur (gaps)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <widget class="QPushButton" name="pushButton_multipart_distance">
+              <property name="text">
+               <string>Kontrola odległości płatów w obiektach typu multipart</string>
               </property>
              </widget>
             </item>
@@ -531,7 +387,7 @@
         </widget>
         <widget class="QWidget" name="tab_5">
          <attribute name="title">
-          <string>Kontrole</string>
+          <string>Kontrole bazy</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_17">
           <item row="0" column="0">
@@ -555,14 +411,14 @@
              </size>
             </property>
             <property name="currentIndex">
-             <number>3</number>
+             <number>0</number>
             </property>
             <widget class="QWidget" name="daneogolne">
              <property name="geometry">
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>517</width>
+               <width>567</width>
                <height>297</height>
               </rect>
              </property>
@@ -1193,8 +1049,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>788</width>
-               <height>466</height>
+               <width>704</width>
+               <height>440</height>
               </rect>
              </property>
              <property name="minimumSize">
@@ -1370,6 +1226,182 @@
           </item>
          </layout>
         </widget>
+        <widget class="QWidget" name="tab_2">
+         <attribute name="title">
+          <string>Strefy buforowe</string>
+         </attribute>
+         <widget class="QWidget" name="gridLayoutWidget_2">
+          <property name="geometry">
+           <rect>
+            <x>11</x>
+            <y>11</y>
+            <width>613</width>
+            <height>184</height>
+           </rect>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_18">
+           <item row="2" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QLineEdit" name="lineEdit_additional_height">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="inputMethodHints">
+                <set>Qt::ImhPreferNumbers</set>
+               </property>
+               <property name="text">
+                <string>5</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_20">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>[m]</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="4" column="1">
+            <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox_nmt_raster"/>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_16">
+             <property name="text">
+              <string>Raster NMT:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QCheckBox" name="checkBox_analize_min_heigth">
+             <property name="text">
+              <string>Wysokość strefy buforowej dodano do minimalnej wysokości stanowiska</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_19">
+             <property name="text">
+              <string>Wysokość stefy buforowej dodana do średniej wysokości stanowiska</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <item>
+              <widget class="QLineEdit" name="lineEdit_max_buffer_width">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>100</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_15">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>[m]</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_13">
+             <property name="font">
+              <font>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Strefy buforowe</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_14">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Maksymalna szerokość strefy:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <item>
+              <widget class="QLineEdit" name="lineEdit_reduced_height">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="inputMethodHints">
+                <set>Qt::ImhPreferNumbers</set>
+               </property>
+               <property name="text">
+                <string>1</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="label_21">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>[m]</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="5" column="0" colspan="2">
+            <widget class="QPushButton" name="pushButton_make_buffer_area">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>Strefy buforowe</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
        </widget>
       </item>
       <item>
@@ -1394,8 +1426,8 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>797</width>
-           <height>183</height>
+           <width>593</width>
+           <height>203</height>
           </rect>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_3">
