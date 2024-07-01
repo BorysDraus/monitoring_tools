@@ -24,7 +24,7 @@
 from typing import List
 
 from qgis import processing, PyQt
-from qgis.core import QgsFeature, QgsDistanceArea, QgsUnitTypes, QgsLayerTreeLayer, QgsPoint, QgsPointLocator, QgsSnappingConfig, QgsSnappingUtils, QgsTolerance, QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
+from qgis.core import QgsFillSymbol, QgsSimpleFillSymbolLayer, QgsMarkerSymbol, QgsSimpleMarkerSymbolLayer, QgsSingleSymbolRenderer, QgsSimpleMarkerSymbolLayerBase, QgsFeature, QgsDistanceArea, QgsUnitTypes, QgsLayerTreeLayer, QgsPoint, QgsPointLocator, QgsSnappingConfig, QgsSnappingUtils, QgsTolerance, QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
 from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferenceSystem,QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils, QgsVectorFileWriter, QgsVectorLayer, QgsProject, QgsProcessingFeedback, QgsApplication, QgsProcessingContext
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
@@ -32,21 +32,27 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QLineEdit, QToolBar, QProg
 from PyQt5.QtWidgets import QMessageBox, QWidget
 from PyQt5.QtCore import QVariant, Qt,QFileInfo
 
+from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS
+
 from .control_model import ControlModel
 from .TimerMessageBox import CustomMessageBox
 # Initialize Qt resources from file resources.py
 from .resources import *
 
-from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsVectorDataProvider, QgsField, QgsRectangle, QgsMapLayerProxyModel, QgsProcessing
+from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsField, QgsRectangle, QgsMapLayerProxyModel
 
-import os
 import subprocess
 import sys
 
 from datetime import datetime
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry import MultiPolygon
 from shapely import Polygon, MultiLineString, Point, MultiPoint
+
+import xlsxwriter
+#usuń jeżeli nie chcesz raportu z excelu w zdjęciach
 
 from .atribute_table_manager import AtributeTableManager
 
@@ -286,6 +292,27 @@ class MonitoringTools:
                 f = f.readline()
                 if os.path.exists(str(f)):
                     self.dockwidget.lineEdit_dBase_directory.setText(str(f))
+
+        # Wskazanie folderu zdjęc
+
+    def selectPictureDirectory(self):
+        directory = QFileDialog.getExistingDirectory(self.dockwidget, "Wskaż folder ze zdjęciami")
+        if directory:
+            self.dockwidget.lineEdit_picture_directory.setText(directory)
+            # Save the directory path to a file
+            dirnameOfCatalog = self.resolveDir('info')
+            dirOfFile = os.path.join(dirnameOfCatalog, "picture_address.txt")
+            with open(dirOfFile, "w+") as file:
+                file.write(directory)
+
+    def pictureFolderDirectoryLoad(self):
+        dirnameOfCatalog = self.resolveDir('info')
+        dirOfFile = os.path.join(dirnameOfCatalog, "picture_address.txt")
+        if os.path.isfile(dirOfFile):
+            with open(dirOfFile) as f:
+                directory = f.readline().strip()
+                if os.path.exists(directory):
+                    self.dockwidget.lineEdit_picture_directory.setText(directory)
 
 
     # Metoda zwraca lokalizację wskazanego folderu lub pliku
@@ -550,7 +577,6 @@ class MonitoringTools:
 
         layer.commitChanges()
 
-
         # Info
         CustomMessageBox.showWithTimeout(5, "Obliczono powierzchnię poligonów warstwy wektorowej", "", icon=QMessageBox.Information)
         self.appendDataToLabel("Obliczono powierzchnię poligonów warstwy wektorowej", self.dockwidget.label_info)
@@ -583,14 +609,6 @@ class MonitoringTools:
     # T_0103
     def add_coordinates_to_dbase(self):
 
-        # # Specify the EPSG code for the desired project coordinate system (e.g., WGS 84)
-        # new_project_crs_epsg = 4326
-        # # Define the new project coordinate reference system
-        # new_project_crs = QgsCoordinateReferenceSystem(new_project_crs_epsg, QgsCoordinateReferenceSystem.EpsgCrsId)
-        # # Set the new coordinate system for the project
-        # QgsProject.instance().setCrs(new_project_crs)
-
-
         # Clear info labels
         self.clear_info_labels()
 
@@ -601,7 +619,6 @@ class MonitoringTools:
         # Connection settings
         conn = sqlite3.connect(d_base)
         cursor = conn.cursor()
-
 
         # Layer
         layer = self.getLayer()
@@ -620,10 +637,8 @@ class MonitoringTools:
         crs.createFromId(2180)
         layer.setCrs(QgsCoordinateReferenceSystem(crs))
 
-
         # Transform CRS from 2180 to 4326
         transform = QgsCoordinateTransform(QgsCoordinateReferenceSystem("EPSG:2180"), QgsCoordinateReferenceSystem("EPSG:4326"), QgsProject.instance())
-
 
         # Get the centroid coordinates of each feature
         for feature in layer.getFeatures():
@@ -642,7 +657,6 @@ class MonitoringTools:
                 # Update the records
                 update_query = """UPDATE stanowisko_rok SET x = ?, y = ? 
                 WHERE stanowisko_nr = ? AND coalesce(cast(x as int), 0)=0 or coalesce(cast(y as int), 0)=0"""
-
 
                 # Execute the update query
                 cursor.execute(update_query, (centroid_wgs84.y(), centroid_wgs84.x(), area_id))
@@ -663,7 +677,6 @@ class MonitoringTools:
         self.appendDataToLabel("Zaktualizowano brakujce współrzędne w bazie danych.", self.dockwidget.label_info)
         self.dockwidget.pushButton_add_coordinates_to_d_base.setStyleSheet('QPushButton {background-color: #3cb371}')
 
-
     # T_0104
     def corect_compatibility(self):
 
@@ -677,7 +690,6 @@ class MonitoringTools:
         # Connection settings
         conn = sqlite3.connect(d_base)
         cursor = conn.cursor()
-
 
         try:
 
@@ -709,9 +721,6 @@ class MonitoringTools:
         CustomMessageBox.showWithTimeout(5, "Proces zakończył się powodzeniem!", "", icon=QMessageBox.Information)
         self.appendDataToLabel("Proces zakończył się powodzeniem!", self.dockwidget.label_info)
         self.dockwidget.pushButton_correct_compatibility.setStyleSheet('QPushButton {background-color: #3cb371}')
-
-
-
 
     # T_0105
     def asign_n2000_to_dbase(self):
@@ -1211,14 +1220,15 @@ class MonitoringTools:
         conn = sqlite3.connect(d_base)
         cursor = conn.cursor()
 
-        cursor.execute(" SELECT s.stanowisko_nr, s.siedlisko_cd, s.siedlisko_plan_cd, s.siedlisko_lp_cd, s.zgodnosc_cd, sz.zgodnosc_nm, sr.rok, sr.rezygnacja_fl, sr.uzasadnienie_rezygnacji, sr.wartosci_przyrodnicze, sr.opis_siedliska, sr.zarzadzajacy_terenem, sr.data_oceny, MAX(CASE WHEN srp.parametr_cd = 'PS' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS PS, MAX(CASE WHEN srp.parametr_cd = 'SF' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS SF, MAX(CASE WHEN srp.parametr_cd = 'PO' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS PO, sr.ocena_cd, sr.komentarz_ocena_stanu_ochrony FROM stanowisko s LEFT JOIN stanowisko_rok sr ON sr.stanowisko_nr = s.stanowisko_nr LEFT JOIN stanowisko_rok_parametr srp ON sr.stanowisko_nr = srp.stanowisko_nr AND sr.rok = srp.rok LEFT JOIN sl_zgodnosc sz ON s.zgodnosc_cd = sz.zgodnosc_cd GROUP BY sr.stanowisko_nr;")
+        cursor.execute(
+            " SELECT s.stanowisko_nr, s.siedlisko_cd, s.siedlisko_plan_cd, s.siedlisko_lp_cd, s.zgodnosc_cd, sz.zgodnosc_nm, sr.rok, sr.rezygnacja_fl, sr.uzasadnienie_rezygnacji, sr.wartosci_przyrodnicze, sr.opis_siedliska, sr.zarzadzajacy_terenem, sr.data_oceny, MAX(CASE WHEN srp.parametr_cd = 'PS' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS PS, MAX(CASE WHEN srp.parametr_cd = 'SF' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS SF, MAX(CASE WHEN srp.parametr_cd = 'PO' OR srp.ocena_cd = '' THEN srp.ocena_cd ELSE NULL END) AS PO, sr.ocena_cd, sr.komentarz_ocena_stanu_ochrony FROM stanowisko s LEFT JOIN stanowisko_rok sr ON sr.stanowisko_nr = s.stanowisko_nr LEFT JOIN stanowisko_rok_parametr srp ON sr.stanowisko_nr = srp.stanowisko_nr AND sr.rok = srp.rok LEFT JOIN sl_zgodnosc sz ON s.zgodnosc_cd = sz.zgodnosc_cd GROUP BY sr.stanowisko_nr;")
         rows = cursor.fetchall()
 
         list = []
 
         for row in rows:
-            list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15], row[16], row[17]))
-
+            list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10],
+                         row[11], row[12], row[13], row[14], row[15], row[16], row[17]))
 
         total_features = layer.featureCount()
 
@@ -1227,7 +1237,6 @@ class MonitoringTools:
         progress_dialog.setWindowModality(2)  # Make the dialog modal
         progress_dialog.show()
 
-
         layer.startEditing()
         layer_provider = layer.dataProvider()
         fields = layer.fields()
@@ -1235,51 +1244,50 @@ class MonitoringTools:
         for f in layer.getFeatures():
             id = f.id()
             feat = layer.getFeature(id)
-            attribute_value = feat[column_index]
+            attribute_value = int(feat[column_index])
 
             progress_dialog.setValue(id)
 
             for data in list:
                 if data[0] == attribute_value:
-
-                    if(data[1]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL"): data[1]}})
-                    if (data[2]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL_PLAN"): data[2]}})
-                    if (data[3]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL_LP"): data[3]}})
-                    if (data[4]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ZGODN_KOD"): data[4]}})
-                    if(data[5]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ZGODN_OPIS"): data[5]}})
-                    if (data[6]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ROK") : data[6]}})
-                    if (data[7]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("REZYGNACJA") : data[7]}})
-                    if (data[8]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("UZ_REYGN"): data[8]}})
-                    if (data[9]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("WART_PRZYR"): data[9]}})
-                    if (data[10]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("OPIS_SIEDL"): data[10]}})
-                    if (data[11]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("ZARZ_TEREN"): data[11]}})
-                    if (data[12]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("DATA_OCENY"): data[12]}})
-                    if (data[13]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_PS"): data[13]}})
-                    if (data[14]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_SSF"): data[14]}})
-                    if (data[15]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_PO"): data[15]}})
-                    if (data[16]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("OCENA"): data[16]}})
-                    if (data[17]):
-                        layer_provider.changeAttributeValues({id: {fields.indexFromName("OCENA_OPIS"): data[17]}})
-
+                    try:
+                        if data[1] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL"): data[1]}})
+                        if data[2] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL_PLAN"): data[2]}})
+                        if data[3] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("SIEDL_LP"): data[3]}})
+                        if data[4] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("ZGODN_KOD"): data[4]}})
+                        if data[5] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("ZGODN_OPIS"): data[5]}})
+                        if data[6] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("ROK"): data[6]}})
+                        if data[7] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("REZYGNACJA"): data[7]}})
+                        if data[9] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("WART_PRZYR"): data[9]}})
+                        if data[10] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("OPIS_SIEDL"): data[10]}})
+                        if data[11] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("ZARZ_TEREN"): data[11]}})
+                        if data[12] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("DATA_OCENY"): data[12]}})
+                        if data[13] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_PS"): data[13]}})
+                        if data[14] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_SSF"): data[14]}})
+                        if data[15] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("PARAM_PO"): data[15]}})
+                        if data[16] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("OCENA"): data[16]}})
+                        if data[17] is not None:
+                            layer_provider.changeAttributeValues({id: {fields.indexFromName("OCENA_OPIS"): data[17]}})
+                    except Exception as e:
+                        print(f"Error assigning data: {e}")
+                        print(f"Attribute values: {data}")
 
         layer.commitChanges()
-
 
         progress_dialog.setValue(total_features)
         progress_dialog.close()
@@ -2099,12 +2107,9 @@ class MonitoringTools:
         # Start editing the new layer
         overlaps_layer.startEditing()
 
-        # Add fields to the new layer (copy fields from the source layer)
-        overlaps_layer_fields = layer.fields()
+        # Delete all existing fields (if any) and add a new field for area in hectares
         overlaps_layer_data_provider = overlaps_layer.dataProvider()
-        overlaps_layer_data_provider.addAttributes(overlaps_layer_fields)
-
-        # Update the fields
+        overlaps_layer_data_provider.addAttributes([QgsField("area", QVariant.Double)])
         overlaps_layer.updateFields()
 
         # Function to handle adding intersection geometries to the overlaps layer
@@ -2114,12 +2119,12 @@ class MonitoringTools:
                     if sub_geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
                         new_feature = QgsFeature()
                         new_feature.setGeometry(sub_geometry)
-                        new_feature.setAttributes(attributes)
+                        new_feature.setAttributes([sub_geometry.area()])  # Area in hectares
                         overlaps_layer.addFeature(new_feature)
             elif intersection_geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
                 new_feature = QgsFeature()
                 new_feature.setGeometry(intersection_geometry)
-                new_feature.setAttributes(attributes)
+                new_feature.setAttributes([intersection_geometry.area()])  # Area in hectares
                 overlaps_layer.addFeature(new_feature)
 
         # Create a progress dialog
@@ -2245,7 +2250,6 @@ class MonitoringTools:
         # Subtract the union geometry from the bounding box to find gaps
         gaps_geometry = bbox_polygon.difference(union_geometry)
 
-        # Function to add gap centroids to the gaps layer with cluster tolerance consideration
         # Function to add gap centroids to the gaps layer with cluster tolerance and area attributes
         def add_gap_centroids_to_layer(geometry):
             if geometry.isMultipart():
@@ -2276,6 +2280,29 @@ class MonitoringTools:
 
         # Commit changes to the new layer
         gaps_layer.commitChanges()
+
+        # # Define the symbology for the gaps layer
+        # symbol = QgsMarkerSymbol()
+        # # Create the outer black cross with fill
+        # black_cross = QgsSimpleMarkerSymbolLayer()
+        # black_cross.setShape(QgsSimpleMarkerSymbolLayerBase.Cross)
+        # black_cross.setColor(QColor('black'))
+        # black_cross.setSize(4.4)
+        # black_cross.setStrokeWidth(0.6)
+        #
+        # # Create the inner red cross with fill
+        # red_cross = QgsSimpleMarkerSymbolLayer()
+        # red_cross.setShape(QgsSimpleMarkerSymbolLayerBase.Cross)
+        # red_cross.setColor(QColor('red'))
+        # red_cross.setSize(4)
+        # red_cross.setStrokeWidth(0.4)
+        #
+        # # Add layers to the symbol
+        # symbol.appendSymbolLayer(black_cross)
+        # symbol.appendSymbolLayer(red_cross)
+        #
+        # renderer = QgsSingleSymbolRenderer(symbol)
+        # gaps_layer.setRenderer(renderer)
 
         # Add the new layer to the project
         QgsProject.instance().addMapLayer(gaps_layer)
@@ -2886,7 +2913,7 @@ class MonitoringTools:
         for f in layer.getFeatures():
             id = f.id()
             feat = layer.getFeature(id)
-            area_list_from_layer.append(feat[field_area_id])
+            area_list_from_layer.append(int(feat[field_area_id]))
 
 
 
@@ -2935,7 +2962,458 @@ class MonitoringTools:
         else:
             self.dockwidget.pushButton_compatibilyty.setStyleSheet('QPushButton {background-color: #3cb371}')
 
+    def check_pictures(self):
+        self.clearPlainTextEditInfo()
 
+        # Get the input layer
+        layer = self.getLayer()
+        if not layer.isValid():
+            message = "Warstwa jest niepoprawna."
+            print(message)
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Get the folder path from the line edit
+        folder_path = self.dockwidget.lineEdit_picture_directory.text()
+        if not os.path.exists(folder_path):
+            message = "Ścieżka folderu ze zdjęciami jest niepoprawna."
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Get the column name from the combo box and find the index
+        column_name = self.dockwidget.comboBoxFieldsName.currentText()
+        column_index = layer.fields().indexFromName(column_name)
+        if column_index == -1:
+            message = f"Nie znaleziono kolumny: {column_name}"
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Create a progress dialog
+        total_features = layer.featureCount()
+        progress_dialog = QProgressDialog("Sprawdzanie zdjęć...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
+        # Loop through each feature
+        missing_pictures = []
+        for index, feature in enumerate(layer.getFeatures()):
+            # Update progress
+            progress_dialog.setValue(index)
+            if progress_dialog.wasCanceled():
+                break
+
+            # Get the 10-digit number from the feature using the column index
+            number = feature[column_index]
+
+            # Find pictures that start with the 10-digit number
+            matching_pictures = [file for file in os.listdir(folder_path) if file.startswith(str(number))]
+
+            # Check if there are at least two pictures
+            if len(matching_pictures) < 2:
+                missing_pictures.append((number, len(matching_pictures)))
+
+        # Ensure the progress dialog reaches 100%
+        progress_dialog.setValue(total_features)
+
+        # Show results in plainTextEdit_info
+        if missing_pictures:
+            message = "Niektóre płaty mają mniej niż dwa zdjęcia:\n"
+            for number, count in missing_pictures:
+                message += f"Numer płatu: {number}, Liczba zdjęć: {count}\n"
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+        else:
+            message = "Wszystkie płaty mają co najmniej dwa zdjęcia."
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+
+        return True
+
+    @staticmethod
+    def get_exif_data(image):
+        """Returns a dictionary from the exif data of an PIL Image item. Also converts the GPS Tags."""
+        exif_data = {}
+        info = image._getexif()
+        if info:
+            for tag, value in info.items():
+                decoded = TAGS.get(tag, tag)
+                if decoded == "GPSInfo":
+                    gps_data = {}
+                    for t in value:
+                        sub_decoded = GPSTAGS.get(t, t)
+                        gps_data[sub_decoded] = value[t]
+                    exif_data[decoded] = gps_data
+                else:
+                    exif_data[decoded] = value
+        return exif_data
+
+    @staticmethod
+    def convert_to_degrees(value):
+        """Helper function to convert the GPS coordinates stored in the EXIF to degrees in float format"""
+        d, m, s = value
+        d = float(d)
+        m = float(m)
+        s = float(s)
+        return d + (m / 60.0) + (s / 3600.0)
+
+    def get_lat_lon(self, exif_data):
+        """Returns the latitude and longitude, if available, from the provided exif_data (obtained through get_exif_data above)"""
+        if "GPSInfo" in exif_data:
+            gps_info = exif_data["GPSInfo"]
+            gps_lat = gps_info.get("GPSLatitude")
+            gps_lat_ref = gps_info.get("GPSLatitudeRef")
+            gps_lon = gps_info.get("GPSLongitude")
+            gps_lon_ref = gps_info.get("GPSLongitudeRef")
+
+            if gps_lat and gps_lon and gps_lat_ref and gps_lon_ref:
+                lat = self.convert_to_degrees(gps_lat)
+                if gps_lat_ref != "N":
+                    lat = 0 - lat
+
+                lon = self.convert_to_degrees(gps_lon)
+                if gps_lon_ref != "E":
+                    lon = 0 - lon
+
+                return lat, lon
+        return None, None
+
+    def check_geotags_and_generate_shapefile(self):
+        self.clearPlainTextEditInfo()
+
+        # Get the input layer
+        layer = self.getLayer()
+        if not layer.isValid():
+            message = "Warstwa jest nieprawidłowa."
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Get the folder path from the line edit
+        folder_path = self.dockwidget.lineEdit_picture_directory.text()
+        if not os.path.exists(folder_path):
+            message = "Ścieżka folderu ze zdjęciami jest nieprawidłowa."
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Get the column name from the combo box and find the index
+        column_name = self.dockwidget.comboBoxFieldsName.currentText()
+        column_index = layer.fields().indexFromName(column_name)
+        if column_index == -1:
+            message = f"Kolumna nie znaleziona: {column_name}"
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Check if the field 'il_zdj' already exists in the layer, if not add it
+        if not layer.fields().indexFromName("il_zdj") >= 0:
+            layer.startEditing()
+            layer.addAttribute(QgsField("il_zdj", QVariant.Int))
+            layer.updateFields()
+            layer.commitChanges()
+
+        # Create a progress dialog
+        total_features = layer.featureCount()
+        progress_dialog = QProgressDialog("Sprawdzam geotagi...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
+        # Define CRS for input layer (EPSG:2180) and WGS84 (EPSG:4326)
+        crs_input = QgsCoordinateReferenceSystem('EPSG:2180')
+        crs_wgs84 = QgsCoordinateReferenceSystem('EPSG:4326')
+
+        # Coordinate transformation context
+        transform_context = QgsProject.instance().transformContext()
+
+        # Dictionary to count pictures per feature ID
+        picture_count_per_feature = {}
+
+        # Create a temporary layer to store picture locations with EPSG:2180
+        picture_layer = QgsVectorLayer("Point?crs=epsg:2180", "Lokalizacja zdjęć", "memory")
+        picture_layer_data_provider = picture_layer.dataProvider()
+        picture_layer_data_provider.addAttributes([
+            QgsField("PictureName", QVariant.String),
+            QgsField("FeatureID", QVariant.String),
+            QgsField("Latitude", QVariant.Double),
+            QgsField("Longitude", QVariant.Double),
+        ])
+        picture_layer.updateFields()
+
+        # Count of features with one or zero pictures
+        features_with_one_or_zero_pictures = 0
+
+        # List to keep track of pictures without geotags
+        pictures_without_geotags = []
+
+        # Loop through each feature
+        issues_found = []
+        for index, feature in enumerate(layer.getFeatures()):
+            # Update progress
+            progress_dialog.setValue(index)
+            if progress_dialog.wasCanceled():
+                break
+
+            # Get the 10-digit number from the feature using the column index
+            number = feature[column_index]
+            geometry = feature.geometry()
+
+            # Initialize count for current feature ID
+            if number not in picture_count_per_feature:
+                picture_count_per_feature[number] = 0
+
+            # Find pictures that start with the 10-digit number
+            matching_pictures = [file for file in os.listdir(folder_path) if file.startswith(str(number))]
+
+            for picture in matching_pictures:
+                picture_path = os.path.join(folder_path, picture)
+                try:
+                    # Read image and extract geotags
+                    image = Image.open(picture_path)
+                    exif_data = MonitoringTools.get_exif_data(image)  # Corrected static method call
+                    lat, lon = MonitoringTools.get_lat_lon(self, exif_data)  # Corrected method call
+
+                    if lat is not None and lon is not None:
+                        # Transform picture coordinates from EPSG:4326 to EPSG:2180
+                        point_wgs84 = QgsPointXY(lon, lat)
+                        point = QgsPointXY(lon, lat)
+                        transform = QgsCoordinateTransform(crs_wgs84, crs_input, transform_context)
+                        transformed_point = transform.transform(point)
+
+                        point_geometry = QgsGeometry.fromPointXY(transformed_point)
+
+                        # Check if picture location intersects with feature geometry
+                        if not geometry.contains(point_geometry):
+                            issues_found.append((number, picture, lat, lon))
+
+                        # Add picture location to the temporary layer
+                        picture_feature = QgsFeature()
+                        picture_feature.setGeometry(point_geometry)
+                        picture_feature.setAttributes([picture, number, lat, lon])
+                        picture_layer_data_provider.addFeature(picture_feature)
+
+                        # Increment picture count for current feature ID
+                        picture_count_per_feature[number] += 1
+                    else:
+                        # Log pictures without geotags
+                        pictures_without_geotags.append(picture)
+
+                except Exception as e:
+                    self.dockwidget.plainTextEdit_info.appendPlainText(f"Błąd odczytu zdjęcia {picture}: {str(e)}")
+
+            # Check if the feature has one or zero pictures
+            if picture_count_per_feature[number] <= 1:
+                features_with_one_or_zero_pictures += 1
+
+        # Ensure the progress dialog reaches 100%
+        progress_dialog.setValue(total_features)
+
+        # Update il_zdj field for each feature in the input layer
+        layer.startEditing()
+        for feature in layer.getFeatures():
+            feature_id = feature[column_name]
+            if feature_id in picture_count_per_feature:
+                num_pictures = picture_count_per_feature[feature_id]
+                feature["il_zdj"] = num_pictures
+                layer.updateFeature(feature)
+
+        layer.commitChanges()
+
+        # Add the new layer to the project
+        QgsProject.instance().addMapLayer(picture_layer)
+
+        # Show results in plainTextEdit_info
+        if issues_found:
+            message = "Miejsce wykonania niektórych zdjęć nie pokrywa się z korespondującym płatem:\n"
+            for number, picture, lat, lon in issues_found:
+                message += f"Numer płatu: {number}, Zdjęcie: {picture}, Lat: {lat}, Lon: {lon}\n"
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+        else:
+            message = "Wszystkie płaty mają co najmniej dwa zdjęcia."
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+
+        # Add message about features with one or zero pictures
+        message = f"Ilość płatów z jednym lub bez zdjęć: {features_with_one_or_zero_pictures}"
+        self.dockwidget.plainTextEdit_info.appendPlainText(message)
+
+        # Add message about pictures without geotags
+        if pictures_without_geotags:
+            message = "Zdjęcia bez geotagów:\n"
+            for picture in pictures_without_geotags:
+                message += f"{picture}\n"
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+
+        return True
+
+    def generate_picture_report(self):
+        self.clearPlainTextEditInfo()
+
+        # Get the input layer
+        layer = self.getLayer()
+        if not layer.isValid():
+            message = "Warstwa jest nieprawidłowa."
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Get the folder path from the line edit
+        folder_path = self.dockwidget.lineEdit_picture_directory.text()
+        if not os.path.exists(folder_path):
+            message = "Ścieżka folderu ze zdjęciami jest nieprawidłowa."
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Get the column name from the combo box and find the index
+        column_name = self.dockwidget.comboBoxFieldsName.currentText()
+        column_index = layer.fields().indexFromName(column_name)
+        if column_index == -1:
+            message = f"Kolumna nie znaleziona: {column_name}"
+            self.dockwidget.plainTextEdit_info.appendPlainText(message)
+            return False
+
+        # Check if the field 'il_zdj' already exists in the layer, if not add it
+        if not layer.fields().indexFromName("il_zdj") >= 0:
+            layer.startEditing()
+            layer.addAttribute(QgsField("il_zdj", QVariant.Int))
+            layer.updateFields()
+            layer.commitChanges()
+
+        # Create a progress dialog
+        total_features = layer.featureCount()
+        progress_dialog = QProgressDialog("Sprawdzanie zdjęć i geotagów...", "Cancel", 0, total_features)
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.show()
+
+        # Define CRS for input layer (EPSG:2180) and WGS84 (EPSG:4326)
+        crs_input = QgsCoordinateReferenceSystem('EPSG:2180')
+        crs_wgs84 = QgsCoordinateReferenceSystem('EPSG:4326')
+
+        # Coordinate transformation context
+        transform_context = QgsProject.instance().transformContext()
+
+        # Dictionaries to count pictures per feature ID and to store issues
+        picture_count_per_feature_name = {}
+        picture_count_per_feature_geo = {}
+        missing_pictures = []
+        issues_found = []
+        pictures_without_geotags = []
+
+        # Count of features with one or zero pictures
+        features_with_one_or_zero_pictures = 0
+
+        # Loop through each feature
+        for index, feature in enumerate(layer.getFeatures()):
+            # Update progress
+            progress_dialog.setValue(index)
+            if progress_dialog.wasCanceled():
+                break
+
+            # Get the 10-digit number from the feature using the column index
+            number = feature[column_index]
+            geometry = feature.geometry()
+
+            # Initialize count for current feature ID
+            if number not in picture_count_per_feature_name:
+                picture_count_per_feature_name[number] = 0
+            if number not in picture_count_per_feature_geo:
+                picture_count_per_feature_geo[number] = 0
+
+            # Find pictures that start with the 10-digit number
+            matching_pictures = [file for file in os.listdir(folder_path) if file.startswith(str(number))]
+
+            # Check if there are at least two pictures
+            if len(matching_pictures) < 2:
+                missing_pictures.append((number, len(matching_pictures)))
+
+            for picture in matching_pictures:
+                picture_path = os.path.join(folder_path, picture)
+                try:
+                    # Read image and extract geotags
+                    with Image.open(picture_path) as image:
+                        exif_data = MonitoringTools.get_exif_data(image)  # Corrected static method call
+                        lat, lon = MonitoringTools.get_lat_lon(self, exif_data)  # Corrected method call
+
+                        if lat is not None and lon is not None:
+                            # Transform picture coordinates from EPSG:4326 to EPSG:2180
+                            point_wgs84 = QgsPointXY(lon, lat)
+                            transform = QgsCoordinateTransform(crs_wgs84, crs_input, transform_context)
+                            transformed_point = transform.transform(point_wgs84)
+
+                            point_geometry = QgsGeometry.fromPointXY(transformed_point)
+
+                            # Check if picture location intersects with feature geometry
+                            if geometry.contains(point_geometry):
+                                picture_count_per_feature_geo[number] += 1
+                            else:
+                                issues_found.append((number, picture, lat, lon))
+                        else:
+                            # Log pictures without geotags
+                            pictures_without_geotags.append(picture)
+
+                        # Increment picture count for current feature ID based on name
+                        picture_count_per_feature_name[number] += 1
+
+                except Exception as e:
+                    self.dockwidget.plainTextEdit_info.appendPlainText(f"Błąd odczytu zdjęcia {picture}: {str(e)}")
+
+            # Check if the feature has one or zero pictures based on name
+            if picture_count_per_feature_name[number] <= 1:
+                features_with_one_or_zero_pictures += 1
+
+        # Ensure the progress dialog reaches 100%
+        progress_dialog.setValue(total_features)
+
+        # Update il_zdj field for each feature in the input layer
+        layer.startEditing()
+        for feature in layer.getFeatures():
+            feature_id = feature[column_name]
+            if feature_id in picture_count_per_feature_name:
+                num_pictures = picture_count_per_feature_name[feature_id]
+                feature["il_zdj"] = num_pictures
+                layer.updateFeature(feature)
+
+        layer.commitChanges()
+
+        # Generate the report
+        shapefile_name = os.path.basename(layer.source())
+        report_filename_csv = os.path.join(folder_path, 'Zał 2. Wynik kontroli fotografii płatów.csv')
+        try:
+            with open(report_filename_csv, 'w', newline='', encoding='utf-8-sig') as csvfile:
+                writer = csv.writer(csvfile, delimiter=';')
+                writer.writerow([f"Nazwa shapefile: {shapefile_name}"])
+                writer.writerow([f"Data raportu: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
+                writer.writerow([])  # Empty row for separation
+                writer.writerow(['Kontrola zdjęć na podstawie nazwy pliku'])
+                writer.writerow(['Numer płatu', 'Liczba zdjęć', 'Opis problemu'])
+
+                for number, count in missing_pictures:
+                    writer.writerow([number, count, 'Mniej niż 2 zdjęcia'])
+
+                # Add list of all features and how many pictures they have according to name checking
+                writer.writerow([])  # Empty row for separation
+                writer.writerow(['Numer płatu', 'Liczba zdjęć'])
+                for number, count in picture_count_per_feature_name.items():
+                    writer.writerow([number, count])
+
+                writer.writerow([])  # Empty row for separation
+                writer.writerow(['Kontrola zdjęć na podstawie geolokalizacji'])
+                writer.writerow(['Numer płatu', 'Pozostała liczba zdjęć dla płatu', 'Opis problemu'])
+
+                for number, picture, lat, lon in issues_found:
+                    writer.writerow([number, picture_count_per_feature_geo[number],
+                                     f'Błąd lokalizacji dla zdjęcia {picture} (Lat: {lat}, Lon: {lon})'])
+
+                # Add list table with number of pictures according to geotag checking
+                writer.writerow([])  # Empty row for separation
+                writer.writerow(['Numer płatu', 'Liczba zdjęć'])
+                for number, count in picture_count_per_feature_geo.items():
+                    writer.writerow([number, count])
+
+                # Add section for pictures without geotags
+                writer.writerow([])  # Empty row for separation
+                writer.writerow(['Zdjęcia bez geotagów'])
+                writer.writerow(['Nazwa zdjęcia'])
+                for picture in pictures_without_geotags:
+                    writer.writerow([picture])
+
+            self.dockwidget.plainTextEdit_info.appendPlainText("Raport wygenerowany pomyślnie.")
+        except Exception as e:
+            self.dockwidget.plainTextEdit_info.appendPlainText(f"Wystąpił problem z wygenerowaniem raportu: {str(e)}")
+
+        return True
 
     def make_buffer_area(self):
 
@@ -3238,31 +3716,6 @@ class MonitoringTools:
                 layerByName = QgsProject.instance().mapLayersByName(layerName)[0]
                 QgsProject.instance().removeMapLayer(layerByName.id())
 
-    def test (self):
-
-        self.get_error_result_by_error_code(30100)
-        #
-        #
-        # new_control_model = self.select_control_models_by_error_code(30100)
-        # data = new_control_model[0].get_error_query()
-        # print(data)
-
-    # def add_data_to_control_model(self):
-    #     control_model = ControlModel(
-    #         area_id=1234567890,
-    #         year=2024,
-    #         error_code=101,
-    #         error_name="SampleError",
-    #         error_poz_name="Position1",
-    #         error_description="This is a sample error description.",
-    #         warning_flag=1,
-    #         error_status_flag=0,
-    #         error_query="SELECT * FROM errors"
-    #     )
-    #     return control_model
-
-    import sqlite3
-
     def get_error_result_by_error_code(self, error_code):
         # ADD report
         self.clearPlainTextEditInfo()
@@ -3474,9 +3927,11 @@ class MonitoringTools:
 
             # Odświeżanie ostatnio wykorzystanych ścieżek
             self.dBaseDirectoryLoad()
+            self.pictureFolderDirectoryLoad()
 
             # Actions button click
             self.dockwidget.pushButton_select_dBase.clicked.connect(self.selectDbaseDirectory)
+            self.dockwidget.pushButton_select_picture.clicked.connect(self.selectPictureDirectory)
             self.dockwidget.pushButton_generate_point_layer.clicked.connect(self.generatePointLayer)
             self.dockwidget.pushButton_compatibilyty.clicked.connect(self.compatibilyty_check_tools)
             self.dockwidget.pushButtonNumerationValidatingLayer.clicked.connect(self.numeration_validating_map)
@@ -3679,7 +4134,12 @@ class MonitoringTools:
             self.dockwidget.pushButtonK10500.clicked.connect(self.complex_control_threats)
 
             # test
-            self.dockwidget.pushButtonTest.clicked.connect(self.test)
+            self.dockwidget.pushButtonTest.clicked.connect(self.check_geotags_and_generate_shapefile)
+
+            # Kointrole zdjęć
+            self.dockwidget.pushButton_picture_names.clicked.connect(self.check_pictures)
+            self.dockwidget.pushButton_picture_geotags.clicked.connect(self.check_geotags_and_generate_shapefile)
+            self.dockwidget.pushButton_picture_raport.clicked.connect(self.generate_picture_report)
 
 
 

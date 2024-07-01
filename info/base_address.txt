@@ -1,1 +1,1 @@
-D:/06_Monitoring_toolbox/baza_testowa_kontrole.db
+D:/17_laczeniewarstw/05_24/2024_wymiana_danych/09_przemysl/05_2024/0911_annabugno-pogoda/01_baza/0911_annabugno-pogoda.db
