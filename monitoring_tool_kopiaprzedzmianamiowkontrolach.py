@@ -21,17 +21,9 @@
  *                                                                         *
  ***************************************************************************/
 """
-import logging
-import tempfile
 from typing import List
 
-import pandas as pd
-import math
-import pyodbc
-import requests
-import win32com
 from qgis import processing, PyQt
-from qgis._analysis import QgsNativeAlgorithms
 from qgis.core import QgsFillSymbol, QgsSimpleFillSymbolLayer, QgsMarkerSymbol, QgsSimpleMarkerSymbolLayer, QgsSingleSymbolRenderer, QgsSimpleMarkerSymbolLayerBase, QgsFeature, QgsDistanceArea, QgsUnitTypes, QgsLayerTreeLayer, QgsPoint, QgsPointLocator, QgsSnappingConfig, QgsSnappingUtils, QgsTolerance, QgsProcessingFeatureSourceDefinition, QgsProcessingAlgorithm, QgsProcessingParameterFeatureSource, QgsProcessingParameterFeatureSink, QgsFeatureRequest, QgsSpatialIndex
 from qgis.core import QgsVectorLayer, QgsFeature, QgsField, QgsCoordinateReferenceSystem,QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsField, QgsProject, Qgis, QgsProcessingFeedback, QgsExpression, edit, QgsExpressionContext, QgsExpressionContextUtils, QgsVectorFileWriter, QgsVectorLayer, QgsProject, QgsProcessingFeedback, QgsApplication, QgsProcessingContext
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
@@ -42,10 +34,6 @@ from PyQt5.QtCore import QVariant, Qt,QFileInfo
 
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
-from rasterio import features
-from rasterio.merge import merge
-from rasterio.windows import Window
-from whitebox import whitebox, WhiteboxTools
 
 from .control_model import ControlModel
 from .site_year_model import SiteYearModel
@@ -54,8 +42,7 @@ from .TimerMessageBox import CustomMessageBox
 # Initialize Qt resources from file resources.py
 from .resources import *
 
-from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsField, QgsRectangle, QgsMapLayerProxyModel, \
-    QgsVector
+from qgis._core import QgsWkbTypes, QgsMapLayer, QgsVectorFileWriter, QgsField, QgsRectangle, QgsMapLayerProxyModel
 
 import subprocess
 import sys
@@ -63,13 +50,9 @@ import sys
 from datetime import datetime
 import geopandas as gpd
 from shapely.geometry import MultiPolygon
-from shapely import Polygon, MultiLineString, Point, MultiPoint, make_valid, GEOSException, LineString, \
-    GeometryCollection
+from shapely import Polygon, MultiLineString, Point, MultiPoint
 
 from .atribute_table_manager import AtributeTableManager
-
-import win32com.client
-
 
 # Import the code for the DockWidget
 from .monitoring_tools_dockwidget import MonitoringToolsDockWidget
@@ -81,21 +64,6 @@ from datetime import datetime
 
 from qgis.core import QgsRasterLayer, QgsRasterBandStats
 from qgis.analysis import QgsRasterCalculator, QgsRasterCalculatorEntry
-
-import os
-import numpy as np
-import geopandas as gpd
-from shapely.geometry import Polygon
-from shapely.ops import unary_union, split
-import rasterio
-from rasterio.windows import Window
-import rasterio.features
-import fiona
-import subprocess
-import matplotlib.pyplot as plt
-from qgis.core import QgsProject
-from qgis.PyQt.QtWidgets import QMessageBox
-
 
 
 class MonitoringTools:
@@ -290,8 +258,8 @@ class MonitoringTools:
         self.dockwidget.plainTextEdit_info.setPlainText("")
 
     def appendDataToPlainTextEdit(self, text_message, plain_text_edit):
-        current_text = plain_text_edit.toPlainText()
-        text_message = text_message
+        current_text = plain_text_edit.toPlainText().strip()  # Get current text and strip whitespace
+        text_message = text_message.strip()  # Strip whitespace from the new message
 
         # Combine current text and new message, handling newline characters
         new_text = current_text + "\n" + text_message if current_text else text_message
@@ -395,9 +363,12 @@ class MonitoringTools:
         # Dbase address
         d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
 
+        # Clear warning massage
+        self.dockwidget.label_warning.setText("")
+
         # check if base exist
         if not (str(d_base)):
-            self.appendDataToPlainTextEdit("Nie wskazano bazy danych!", self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
             return False
 
         # Split dbase file name
@@ -512,13 +483,17 @@ class MonitoringTools:
             if self.is_numeric_with_dots(str(x_str)):
                 x = float(x_str)
             else:
-                self.appendDataToPlainTextEdit("Błędne wartości współrzędnych w bazie danych: " + str(x_str) + " Stanowisko:" + str(row[0]), self.dockwidget.plainTextEdit_info)
+                self.appendDataToLabel(
+                    "Błędne wartości współrzędnych w bazie danych: " + str(x_str) + " Stanowisko:" + str(row[0]),
+                    self.dockwidget.label_warning)
                 continue
 
             if self.is_numeric_with_dots(str(y_str)):
                 y = float(y_str)
             else:
-                self.appendDataToPlainTextEdit("Błędne wartości współrzędnych w bazie danych: " + str(y_str) + " Stanowisko:" + str(row[0]), self.dockwidget.plainTextEdit_info)
+                self.appendDataToLabel(
+                    "Błędne wartości współrzędnych w bazie danych: " + str(y_str) + " Stanowisko:" + str(row[0]),
+                    self.dockwidget.label_warning)
                 continue
 
             fet = QgsFeature()
@@ -733,7 +708,7 @@ class MonitoringTools:
 
         except Exception as e:
             CustomMessageBox.showWithTimeout(5, "Proces zakończył się niepowodzeniem!", "", icon=QMessageBox.Warning)
-            self.appendDataToPlainTextEdit("Proces zakończył się niepowodzeniem!", self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel("Proces zakończył się niepowodzeniem!", self.dockwidget.label_warning)
             self.dockwidget.pushButton_correct_compatibility.setStyleSheet('QPushButton {background-color: #ff0000}')
             conn.rollback()
             return False
@@ -742,7 +717,7 @@ class MonitoringTools:
             conn.close()
 
         CustomMessageBox.showWithTimeout(5, "Proces zakończył się powodzeniem!", "", icon=QMessageBox.Information)
-        self.appendDataToPlainTextEdit("Proces zakończył się powodzeniem!", self.dockwidget.plainTextEdit_info)
+        self.appendDataToLabel("Proces zakończył się powodzeniem!", self.dockwidget.label_info)
         self.dockwidget.pushButton_correct_compatibility.setStyleSheet('QPushButton {background-color: #3cb371}')
 
     # T_0105
@@ -1008,111 +983,30 @@ class MonitoringTools:
     # T0106
     def repair_geometry_cet_crs(self):
 
-        self.clearPlainTextEditInfo()
-
         layer = self.getLayer()
-        if not layer.isValid():
-            raise Exception("Layer is not valid")
+        crs = layer.crs()
+        crs.createFromId(2180)
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
 
-            # Get the field name selected in the ComboBox
-        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+        result = processing.run("native:fixgeometries", {'INPUT': layer, 'OUTPUT': 'memory:'})
+        repair_geom_user_layer = result['OUTPUT']
 
-        # Step 1: Check if the layer has a CRS
-        if not layer.crs().isValid():
-            # Define the CRS as EPSG:2180
-            crs = QgsCoordinateReferenceSystem('EPSG:2180')
-            layer.setCrs(crs)
-            self.appendDataToPlainTextEdit("CRS nie jest zdefiniowany. Zdefiniowano na EPSG:2180\n",
-                                           self.dockwidget.plainTextEdit_info)
+        if repair_geom_user_layer:
 
-        # Step 2: Repair geometries
-        layer.startEditing()  # Enable editing
-        repaired_features_info = ""
+            layer.startEditing()
 
-        for feature in layer.getFeatures():
-            geometry = feature.geometry()
+            layer.deleteFeatures([f.id() for f in layer.getFeatures()])
 
-            if not geometry.isGeosValid():  # Check if the geometry is invalid
-                repaired_geom = geometry.makeValid()  # Repair the geometry
+            for feature in repair_geom_user_layer.getFeatures():
+                layer.addFeature(feature)
 
-                if repaired_geom.isGeosValid():  # Check if the repair was successful
-                    feature.setGeometry(repaired_geom)
-                    layer.updateFeature(feature)
+            layer.commitChanges()
 
-                    # Get the value of the selected field for logging
-                    field_value = feature[field_name]
+            print("Geometry repaired in the source layer successfully")
 
-                    repaired_features_info += f"Obiekt {field_name} = {field_value} - geometria naprawiona.\n"
-
-        # Step 3: Commit changes to the layer
-        layer.commitChanges()
-
-        if repaired_features_info:
-            self.appendDataToPlainTextEdit(repaired_features_info, self.dockwidget.plainTextEdit_info)
+            layer.reload()
         else:
-            self.appendDataToPlainTextEdit("Brak uszkodzonych geometrii.\n", self.dockwidget.plainTextEdit_info)
-
-        self.appendDataToPlainTextEdit("Naprawa geometrii zakończona i zmiany wprowadzone do warstwy.\n",
-                                       self.dockwidget.plainTextEdit_info)
-
-    def delete_small_holes(self):
-        self.clearPlainTextEditInfo()
-        hole_threshold_sqm = float(self.dockwidget.lineEdit_hole_size.text().replace(",", "."))
-
-        # Get the active layer
-        layer = self.getLayer()
-        if not layer.isValid():
-            raise Exception("Layer is not valid")
-
-        # Step 1: Check if the layer has a CRS
-        if not layer.crs().isValid():
-            # Define the CRS as EPSG:2180
-            crs = QgsCoordinateReferenceSystem('EPSG:2180')
-            layer.setCrs(crs)
-            self.appendDataToPlainTextEdit("CRS nie jest zdefiniowany. Zdefiniowano na EPSG:2180\n",
-                                           self.dockwidget.plainTextEdit_info)
-
-        # Step 2: Start editing the layer
-        layer.startEditing()
-
-        # Step 3: Iterate over features and check for small holes
-        modified_feature_count = 0
-        for feature in layer.getFeatures():
-            geometry = feature.geometry()
-
-            if geometry and geometry.isMultipart():
-                # Get the polygons and interior rings (holes)
-                polygons = geometry.asMultiPolygon()
-                new_polygons = []
-
-                for polygon in polygons:
-                    outer_ring = polygon[0]  # The outer ring (boundary)
-                    inner_rings = polygon[1:]  # The holes
-
-                    # Filter out small holes by area
-                    new_inner_rings = [ring for ring in inner_rings if
-                                       QgsGeometry.fromPolygonXY([ring]).area() > hole_threshold_sqm]
-
-                    # Rebuild the polygon with the outer ring and the filtered holes
-                    new_polygon = [outer_ring] + new_inner_rings
-                    new_polygons.append(new_polygon)
-
-                # Create the new geometry
-                new_geometry = QgsGeometry.fromMultiPolygonXY(new_polygons)
-
-                # Only update geometry if it has changed
-                if geometry != new_geometry:
-                    layer.changeGeometry(feature.id(), new_geometry)
-                    modified_feature_count += 1
-
-        # Step 4: Commit changes to the layer
-        layer.commitChanges()
-
-        if modified_feature_count > 0:
-            self.appendDataToPlainTextEdit(f"Usunięto dziury dla progu wartości {hole_threshold_sqm} m2.\n",
-                                           self.dockwidget.plainTextEdit_info)
-        else:
-            self.appendDataToPlainTextEdit("Brak dziur do usunięcia.\n", self.dockwidget.plainTextEdit_info)
+            print("Error fixing geometries")
 
     # T_0107
     def round_geometry(self):
@@ -1302,7 +1196,7 @@ class MonitoringTools:
         # Dbase address
         d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
         if not d_base:
-            self.appendDataToPlainTextEdit("Nie wskazano bazy danych!", self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
             return False
 
         # Declare connections
@@ -1450,7 +1344,6 @@ class MonitoringTools:
 
         layer.updateFields()
         layer.commitChanges()
-
 
     # T_0109
     def asign_nature_reserve_to_dbase(self):
@@ -1714,13 +1607,13 @@ class MonitoringTools:
     # C_0101
     def numeration_validating_map(self):
 
-        # Clear info
-        self.clearPlainTextEditInfo()
+        # Clear info labels
+        self.clear_info_labels()
 
         # Layer
         layer = self.dockwidget.mMapLayerComboBoxAraesPolygon.currentLayer()
         if not (layer):
-            self.appendDataToPlainTextEdit("Nie wskazano warstwy!", self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wskazano warstwy!")
             return False
 
         area_list_from_layer = []
@@ -1740,16 +1633,16 @@ class MonitoringTools:
             if not self.is_numeric_and_length(str(data_layer)):
                 invalid_numbers_layer.append(data_layer)
         if len(invalid_numbers_layer) > 0:
-            self.appendDataToPlainTextEdit("", self.dockwidget.plainTextEdit_info)
-            self.appendDataToPlainTextEdit("Błędnie zanumerowane powierzchnie w warstwie:", self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel("", self.dockwidget.label_warning)
+            self.appendDataToLabel("Błędnie zanumerowane powierzchnie w warstwie:", self.dockwidget.label_warning)
 
             for data_layer in invalid_numbers_layer:
-                    self.appendDataToPlainTextEdit(str(data_layer), self.dockwidget.plainTextEdit_info)
+                    self.appendDataToLabel(str(data_layer), self.dockwidget.label_warning)
 
             self.generate_csv_reports("Błędnie zanumerowane powierzchnie w warstwie", ["ID_STANOWISKA"],invalid_numbers_layer, "monitoring_gis_tools_raporty_kontroli", "0101_wykaz_blednie_zan_powierzchni_mapa.csv")
             self.dockwidget.pushButtonNumerationValidatingLayer.setStyleSheet('QPushButton {background-color: #ff0000}')
         else:
-            self.appendDataToPlainTextEdit("Wszystkie powierzchnie w warstwie zanumerowano poprawnie.", self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel("Wszystkie powierzchnie w warstwie zanumerowano poprawnie.", self.dockwidget.label_info)
             self.generate_csv_reports("Błędnie zanumerowane powierzchnie w warstwie - brak", ["ID_STANOWISKA"],invalid_numbers_layer, "monitoring_gis_tools_raporty_kontroli", "0101_wykaz_blednie_zan_powierzchni_mapa_OK.csv")
             self.dockwidget.pushButtonNumerationValidatingLayer.setStyleSheet('QPushButton {background-color: #3cb371}')
 
@@ -1788,16 +1681,16 @@ class MonitoringTools:
         duplicate_values = [value for value, count in attribute_count.items() if count > 1]
 
         if len(duplicate_values) == 0:
-            self.appendDataToPlainTextEdit(f'Brak duplikatów, kolumna: {column_name}', self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel(f'Brak duplikatów, kolumna: {column_name}', self.dockwidget.label_info)
+            CustomMessageBox.showWithTimeout(5, f'Brak duplikatów, kolumna: {column_name}', "", icon=QMessageBox.Information)
             self.generate_csv_reports(f'Brak duplikatów, kolumna: {column_name}', ["ID_STANOWISKA"], duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0102_duplikaty_warstwa_OK.csv")
             self.dockwidget.pushButton_control_duplicates.setStyleSheet('QPushButton {background-color: #3cb371}')
             return False
 
         CustomMessageBox.showWithTimeout(5, f'Warstwa zawiera duplikaty w kolumnie: {column_name}', "", icon=QMessageBox.Information)
-        self.appendDataToPlainTextEdit(f'Warstwa zawiera duplikaty w kolumnie: {column_name}:', self.dockwidget.plainTextEdit_info)
-
+        self.appendDataToLabel(f'Warstwa zawiera duplikaty w kolumnie: {column_name}:', self.dockwidget.label_warning)
         for duplicate_value in duplicate_values:
-            self.appendDataToPlainTextEdit(str(duplicate_value), self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel(str(duplicate_value), self.dockwidget.label_warning)
         self.generate_csv_reports(f'Warstwa zawiera duplikaty w kolumnie: {column_name}', ["ID_STANOWISKA"],duplicate_values, "monitoring_gis_tools_raporty_kontroli", "0102_duplikaty_warstwa.csv")
         self.dockwidget.pushButton_control_duplicates.setStyleSheet('QPushButton {background-color: #ff0000}')
 
@@ -2223,10 +2116,38 @@ class MonitoringTools:
         dissolve_layer.deleteSelectedFeatures()
         dissolve_layer.commitChanges()
 
+    # C_0105
+
+    # def find_overlaps(self):
+    #     self.clear_info_labels()
+    #
+    #     layer = self.getLayer()
+    #     if not layer.isValid():
+    #         print(f"Layer '{layer}' is not valid.")
+    #         CustomMessageBox.showWithTimeout(10, "Warstwa jest niepoprawna...", "", icon=QMessageBox.Information)
+    #         return False
+    #
+    #     AtributeTableManager.addNewColumnToLayerByLayerInstance(self, layer, "ID", QVariant.Int)
+    #     AtributeTableManager.recalculateIDInColumnByLayerInstance(self, layer, "ID", 0)
+    #
+    #     result = processing.run("native:union",
+    #                             {'INPUT': layer, 'OVERLAY': layer, 'OVERLAY_FIELDS_PREFIX': '', 'OUTPUT': 'memory:',
+    #                              'GRID_SIZE': None})
+    #     unionLayer = result['OUTPUT']
+    #
+    #     unionLayer.selectByExpression('"ID" <> "ID_2"')
+    #
+    #     layer.triggerRepaint()
+    #     unionLayer.invertSelection()
+    #     unionLayer.startEditing()
+    #     unionLayer.deleteSelectedFeatures()
+    #     unionLayer.commitChanges()
+    #
+    #     unionLayer.setName('nalozenia_overlaps')
+    #     QgsProject.instance().addMapLayer(unionLayer)
 
     def find_overlaps(self):
         self.clear_info_labels()
-        self.removeMapLayerByName("Nakładki_overlaps")
 
         # Get the layer
         layer = self.getLayer()
@@ -2248,9 +2169,6 @@ class MonitoringTools:
 
         # Function to handle adding intersection geometries to the overlaps layer
         def add_intersections_to_layer(intersection_geometry, attributes):
-
-            self.clearPlainTextEditInfo()
-
             if intersection_geometry.wkbType() == QgsWkbTypes.GeometryCollection:
                 for sub_geometry in intersection_geometry.asGeometryCollection():
                     if sub_geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
@@ -2318,26 +2236,18 @@ class MonitoringTools:
         # Commit changes to the new layer
         overlaps_layer.commitChanges()
 
-        if overlaps_layer.featureCount() == 0:
-            self.appendDataToPlainTextEdit("Nie znaleziono nałożeń.", self.dockwidget.plainTextEdit_info)
-            self.dockwidget.pushButton_find_overlaps.setStyleSheet(
-                'QPushButton {background-color: #3cb371}')
-        else:
-            self.appendDataToPlainTextEdit("Znaleziono nakładki.", self.dockwidget.plainTextEdit_info)
-            self.dockwidget.pushButton_find_overlaps.setStyleSheet(
-                'QPushButton {background-color: #ff0000}')
-            # Add the new layer to the project if there are features
-            QgsProject.instance().addMapLayer(overlaps_layer)
-            qml_path = self.resolveDir('qml_styles') + "/overlaps.qml"  # Update this to the path of your QML file
-            overlaps_layer.loadNamedStyle(qml_path)
-            overlaps_layer.triggerRepaint()
+        # Add the new layer to the project
+        QgsProject.instance().addMapLayer(overlaps_layer)
+
+        qml_path = self.resolveDir('qml_styles') + "/overlaps.qml"  # Update this to the path of your QML file
+        overlaps_layer.loadNamedStyle(qml_path)
+        overlaps_layer.triggerRepaint()
 
         # Ensure the progress dialog reaches 100%
         progress_dialog.setValue(total_features)
 
-    def find_gaps(self, cluster_tolerance=0.01, buffer_size=0.01):  # buffer_size in the units of the layer's CRS
-        self.clearPlainTextEditInfo()
-        self.removeMapLayerByName("Szczeliny_gaps")
+    def find_gaps(self, cluster_tolerance=0.001):
+        self.clear_info_labels()
 
         # Get the layer
         layer = self.getLayer()
@@ -2355,7 +2265,8 @@ class MonitoringTools:
         # Add fields to the new layer
         fields = [QgsField("id", QVariant.Int), QgsField("cluster_tolerance", QVariant.Double),
                   QgsField("area", QVariant.Double)]
-        gaps_layer.dataProvider().addAttributes(fields)
+        gaps_layer_data_provider = gaps_layer.dataProvider()
+        gaps_layer_data_provider.addAttributes(fields)
         gaps_layer.updateFields()
 
         # Get the map units of the layer's CRS
@@ -2365,6 +2276,7 @@ class MonitoringTools:
         if crs_map_units != QgsUnitTypes.DistanceMeters:
             cluster_tolerance = QgsUnitTypes.convertMeasurement(cluster_tolerance, QgsUnitTypes.UnitType(0),
                                                                 crs_map_units)
+
 
         # Create a progress dialog
         total_features = layer.featureCount()
@@ -2394,34 +2306,31 @@ class MonitoringTools:
         bbox = union_geometry.boundingBox()
         bbox_polygon = QgsGeometry.fromRect(bbox)
 
-        # Apply a buffer to the bounding box to avoid cuts
-        bbox_polygon_buffered = bbox_polygon.buffer(buffer_size, 5)  # 5 is the number of segments to approximate the curve
+        # Subtract the union geometry from the bounding box to find gaps
+        gaps_geometry = bbox_polygon.difference(union_geometry)
 
-        # Subtract the union geometry from the buffered bounding box to find gaps
-        gaps_geometry = bbox_polygon_buffered.difference(union_geometry)
-
-        # Function to add gap centroids to the gaps layer
+        # Function to add gap centroids to the gaps layer with cluster tolerance and area attributes
         def add_gap_centroids_to_layer(geometry):
             if geometry.isMultipart():
                 for sub_geometry in geometry.asGeometryCollection():
                     if sub_geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
                         if sub_geometry.area() < cluster_tolerance:
                             continue
-                        point_on_surface = sub_geometry.pointOnSurface()
-                        if point_on_surface.isEmpty():
+                        centroid = sub_geometry.centroid()
+                        if centroid.isEmpty():
                             continue
                         new_feature = QgsFeature()
-                        new_feature.setGeometry(point_on_surface)
+                        new_feature.setGeometry(centroid)
                         new_feature.setAttributes([1, cluster_tolerance, sub_geometry.area()])  # Set attributes
                         gaps_layer.addFeature(new_feature)
             elif geometry.wkbType() in [QgsWkbTypes.Polygon, QgsWkbTypes.MultiPolygon]:
                 if geometry.area() < cluster_tolerance:
                     return
-                point_on_surface = geometry.pointOnSurface()
-                if point_on_surface.isEmpty():
+                centroid = geometry.centroid()
+                if centroid.isEmpty():
                     return
                 new_feature = QgsFeature()
-                new_feature.setGeometry(point_on_surface)
+                new_feature.setGeometry(centroid)
                 new_feature.setAttributes([1, cluster_tolerance, geometry.area()])  # Set attributes
                 gaps_layer.addFeature(new_feature)
 
@@ -2431,46 +2340,15 @@ class MonitoringTools:
         # Commit changes to the new layer
         gaps_layer.commitChanges()
 
-        # Now, delete the feature with the biggest area
-        biggest_feature = None
-        biggest_area = 0.0
+        # Apply QML style to the gaps layer
+        qml_path = self.resolveDir('qml_styles') + "/gaps.qml"  # Update this to the path of your QML file
+        gaps_layer.loadNamedStyle(qml_path)
+        gaps_layer.triggerRepaint()
 
-        for feature in gaps_layer.getFeatures():
-            area = feature.attribute("area")
-            if area > biggest_area:
-                biggest_area = area
-                biggest_feature = feature
+        QgsProject.instance().addMapLayer(gaps_layer)
 
-        # If a biggest feature was found, remove it
-        if biggest_feature:
-            gaps_layer.dataProvider().deleteFeatures([biggest_feature.id()])
-
-        # Check if the output layer has 0 features
-        if gaps_layer.featureCount() == 0:
-            self.appendDataToPlainTextEdit("Nie znaleziono szczelin.", self.dockwidget.plainTextEdit_info)
-            self.dockwidget.pushButton_find_gaps.setStyleSheet('QPushButton {background-color: #3cb371}')
-        else:
-            self.appendDataToPlainTextEdit("Znaleziono szczeliny.", self.dockwidget.plainTextEdit_info)
-            self.dockwidget.pushButton_find_gaps.setStyleSheet('QPushButton {background-color: #ff0000}')
-            # Apply QML style to the gaps layer
-            qml_path = self.resolveDir('qml_styles') + "/gaps.qml"  # Update this to the path of your QML file
-            gaps_layer.loadNamedStyle(qml_path)
-            gaps_layer.triggerRepaint()
-            # Add the new layer to the project if there are features
-            QgsProject.instance().addMapLayer(gaps_layer)
-
-        return True
-
-    def break_multiparts_and_filter(self):  # Set default threshold to 100 sqm (0.01 ha)
-
-        # Ensure a valid threshold value is used
-        area_threshold_sqm = 100  # Default to 100 sqm if invalid
-
-        self.clearPlainTextEditInfo()
-        self.removeMapLayerByName("Małe poligony oraz dziury")
-
-        # Get the selected field name from the combo box
-        field_name = self.dockwidget.comboBoxFieldsName.currentText()
+    def break_multiparts_and_filter(self, area_threshold=0.01):
+        self.clear_info_labels()
 
         # Get the layer
         layer = self.getLayer()
@@ -2479,13 +2357,13 @@ class MonitoringTools:
             return False
 
         # Create a new memory layer to store the filtered polygons
-        filtered_layer = QgsVectorLayer("Polygon?crs=epsg:2180", "Małe poligony oraz dziury", "memory")
+        filtered_layer = QgsVectorLayer("Polygon?crs=epsg:2180", "Poligony poniżej 0,01ha", "memory")
 
         # Start editing the new layer
         filtered_layer.startEditing()
 
         # Add fields to the new layer
-        fields = [QgsField(field_name, QVariant.String), QgsField("area_sqm", QVariant.Double)]
+        fields = [QgsField("id", QVariant.Int), QgsField("area_ha", QVariant.Double)]
         filtered_layer_data_provider = filtered_layer.dataProvider()
         filtered_layer_data_provider.addAttributes(fields)
         filtered_layer.updateFields()
@@ -2496,7 +2374,6 @@ class MonitoringTools:
         progress_dialog.setWindowModality(Qt.WindowModal)
         progress_dialog.show()
 
-
         # Process each feature in the input layer
         for index, feature in enumerate(layer.getFeatures()):
             # Update progress
@@ -2505,56 +2382,29 @@ class MonitoringTools:
                 break
 
             geometry = feature.geometry()
-
-            # Get the value from the selected field
-            field_value = feature[field_name]
-
             if geometry.isMultipart():
                 for part in geometry.asMultiPolygon():
                     for polygon in part:
-                        area_sqm = QgsGeometry.fromPolygonXY([polygon]).area()  # Area in square meters
-
-
-                        if area_sqm <= area_threshold_sqm:
+                        area = QgsGeometry.fromPolygonXY(
+                            [polygon]).area() / 10000  # Convert area from square meters to hectares
+                        if area <= area_threshold:
                             new_feature = QgsFeature()
                             new_feature.setGeometry(QgsGeometry.fromPolygonXY([polygon]))
-                            new_feature.setAttributes([field_value, area_sqm])
+                            new_feature.setAttributes([feature.id(), area])
                             filtered_layer.addFeature(new_feature)
-                        else:
-                            print(
-                                f"Polygon with area {area_sqm:.10f} sqm exceeds threshold {area_threshold_sqm:.10f}")  # Debug
-
             else:
-                area_sqm = geometry.area()  # Area in square meters
-
-                if area_sqm <= area_threshold_sqm:
+                area = geometry.area() / 10000  # Convert area from square meters to hectares
+                if area <= area_threshold:
                     new_feature = QgsFeature()
                     new_feature.setGeometry(geometry)
-                    new_feature.setAttributes([field_value, area_sqm])
+                    new_feature.setAttributes([feature.id(), area])
                     filtered_layer.addFeature(new_feature)
-                else:
-                    print(
-                        f"Single-part polygon with area {area_sqm:.10f} sqm exceeds threshold {area_threshold_sqm:.10f}")
 
         # Commit changes to the new layer
         filtered_layer.commitChanges()
 
-        # Check if the output layer has 0 features
-        if filtered_layer.featureCount() == 0:
-            self.appendDataToPlainTextEdit("Nie znaleziono poligonów poniżej 100m², ani dziur.",
-                                           self.dockwidget.plainTextEdit_info)
-            self.dockwidget.pushButton_small_polygons.setStyleSheet('QPushButton {background-color: #3cb371}')
-        else:
-            self.appendDataToPlainTextEdit("Znaleziono poligony poniżej 100m² oraz dziury.", self.dockwidget.plainTextEdit_info)
-            self.dockwidget.pushButton_small_polygons.setStyleSheet('QPushButton {background-color: #ff0000}')
-
-            # Apply QML style if there are features
-            qml_path = self.resolveDir('qml_styles') + "/small_pol.qml"  # Update this to the path of your QML file
-            filtered_layer.loadNamedStyle(qml_path)
-            filtered_layer.triggerRepaint()
-
-            # Add the new layer to the project
-            QgsProject.instance().addMapLayer(filtered_layer)
+        # Add the new layer to the project
+        QgsProject.instance().addMapLayer(filtered_layer)
 
         # Finalize progress dialog
         progress_dialog.setValue(total_features)
@@ -2643,6 +2493,48 @@ class MonitoringTools:
 
         return True
 
+    def select_control_models_by_error_code(self, error_code: str) -> List[ControlModel]:
+
+        self.clear_info_labels()
+
+        # Dbase address
+        d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
+
+        # Clear warning massage
+        self.dockwidget.label_warning.setText("")
+
+        # check if base exist
+        if not (str(d_base)):
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
+            return False
+
+        # Declare connections
+        conn = sqlite3.connect(d_base)
+
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM sl_kontrola WHERE kontrola_cd=?",
+            (error_code,))
+
+        rows = cur.fetchall()
+
+        control_models = []
+        for row in rows:
+            control_model = ControlModel(
+                area_id=0,
+                year=2024,
+                error_code=row[0],
+                error_name=row[1],
+                error_poz_name=row[2],
+                error_description=row[3],
+                warning_flag=row[4],
+                error_status_flag=0,
+                error_query=row[5]
+            )
+            control_models.append(control_model)
+
+        return control_models
+
     def get_error_result_by_error_code(self, error_code):
         # ADD report
         self.clearPlainTextEditInfo()
@@ -2676,7 +2568,7 @@ class MonitoringTools:
             rows = cur.fetchall()
 
             if not rows:
-                # print("No control found for the given error code")
+                print("No control found for the given error code")
                 return
 
             for row in rows:
@@ -2685,7 +2577,7 @@ class MonitoringTools:
                 code_desc = row[2]
 
             if not query:
-                # print("Query is empty")
+                print("Query is empty")
                 return
 
             list_of_failed_areas = []
@@ -2697,6 +2589,11 @@ class MonitoringTools:
                     stanowisko_nr = data
                     rok = self.selected_year
 
+                # print(f"Executing query for stanowisko_nr: {stanowisko_nr}, rok: {rok}")
+
+                # Print the query and parameters to debug
+                # print(f"Query: {query}")
+                # print(f"Parameters: ({stanowisko_nr}, {rok})")
 
                 # Count the number of placeholders in the query
                 num_placeholders = query.count('?')
@@ -2741,92 +2638,8 @@ class MonitoringTools:
         finally:
             conn.close()  # Make sure to close the database connection
 
-    def get_control_results_for_specific_area(self, error_code, area_id):
-        control_models = []
-        list_of_failed_areas = []
-        error_status_flag = 0
-        warning_flag = 0
 
-        d_base = self.get_dBase_directory()
-        if not d_base:
-            return False
-
-        conn = sqlite3.connect(d_base)
-        year = self.selected_year
-
-        try:
-            cursor = conn.cursor()
-
-            # Fetch control models from sl_kontrola
-            control_models_from_db = self.get_control_models()
-
-            # Find the corresponding control model for the given error code
-            control_model_from_db = next(
-                (model for model in control_models_from_db if model.error_code == error_code), None)
-
-            if control_model_from_db:
-                error_name = control_model_from_db.error_name
-                error_poz_name = control_model_from_db.error_poz_name
-                error_description = control_model_from_db.error_description
-                warning_flag = control_model_from_db.warning_flag
-                error_query = control_model_from_db.error_query
-
-                # Execute error_query to check for error status in the specific area
-                if error_query:
-                    # Count the number of placeholders in error_query
-                    num_placeholders = error_query.count('?')
-
-                    if num_placeholders == 2:
-                        cursor.execute(error_query, (area_id, year))
-                    elif num_placeholders == 1:
-                        cursor.execute(error_query, (area_id,))
-
-                    if cursor.fetchone():
-                        error_status_flag = 1
-                        list_of_failed_areas.append(area_id)
-
-                # Create ControlModel instance and append to control_models list
-                control_model = ControlModel(area_id, year, error_code, error_name, error_poz_name,
-                                             error_description, warning_flag, error_status_flag, error_query)
-                control_models.append(control_model)
-
-            # Determine the button color based on error and warning status
-            button_name = f'pushButton{error_code}'
-            button = getattr(self.dockwidget, button_name, None)
-
-            if button:
-                current_color = button.styleSheet()  # Get the current color of the button
-
-                # Determine new color based on error and warning status
-                new_color = None
-                if error_status_flag == 1:
-                    if warning_flag == 1:
-                        new_color = '#ffa500'  # Orange for error with warning
-                    else:
-                        new_color = '#ff0000'  # Red for error without warning
-                else:
-                    new_color = '#3cb371'  # Green for no error
-
-                # Only update button color if it is a higher priority color
-                if current_color == 'QPushButton {background-color: #3cb371}':
-                    if new_color in ['#ff0000', '#ffa500']:
-                        button.setStyleSheet(f'QPushButton {{background-color: {new_color}}}')
-                elif current_color == 'QPushButton {background-color: #ffa500}':
-                    if new_color == '#ff0000':
-                        button.setStyleSheet(f'QPushButton {{background-color: {new_color}}}')
-                elif current_color != 'QPushButton {background-color: #ff0000}':
-                    button.setStyleSheet(f'QPushButton {{background-color: {new_color}}}')
-
-        except sqlite3.Error as e:
-            print(f"Database operation error: {e}")
-        finally:
-            if 'cursor' in locals():
-                cursor.close()
-            conn.close()
-
-        return control_models
-
-    def get_control_results_for_all_areas(self, error_code, area_id_parameter_only=False):
+    def get_control_results_for_all_areas(self, error_code, area_id_parameter_only):
         control_models = []
         list_of_failed_areas = []
 
@@ -2835,7 +2648,8 @@ class MonitoringTools:
             return False
 
         conn = sqlite3.connect(d_base)
-        year = self.selected_year
+
+        year = self.selected_year  # Assuming selected_year is defined somewhere in your class
 
         try:
             cursor = conn.cursor()
@@ -2844,41 +2658,36 @@ class MonitoringTools:
             cursor.execute("SELECT stanowisko_nr FROM stanowisko_rok")
             area_ids = cursor.fetchall()
 
-            # Fetch control models from sl_kontrola
-            control_models_from_db = self.get_control_models()
-
             for area_id_tuple in area_ids:
                 area_id = area_id_tuple[0]
 
-                # Find the corresponding control model for the given error code
-                control_model_from_db = next(
-                    (model for model in control_models_from_db if model.error_code == error_code), None)
+                error_name = None
+                error_poz_name = None
+                error_description = None
+                warning_flag = 0
+                error_status_flag = 0
+                error_query = None
 
-                if control_model_from_db:
-                    error_name = control_model_from_db.error_name
-                    error_poz_name = control_model_from_db.error_poz_name
-                    error_description = control_model_from_db.error_description
-                    warning_flag = control_model_from_db.warning_flag
-                    error_query = control_model_from_db.error_query
-                    error_status_flag = 0
+                # Fetch error details from sl_kontrola table based on error_code
+                cursor.execute("SELECT kontrola_nm, kontrola_poz_nm, kod_opis, ostrzezenie_fl, kwerenda FROM sl_kontrola WHERE kontrola_cd = ?", (error_code,))
+                row = cursor.fetchone()
+                if row:
+                    error_name, error_poz_name, error_description, warning_flag, error_query = row
 
                     # Execute error_query to check for error status in the specific area
-                    if error_query:
-                        # Count the number of placeholders in error_query
-                        num_placeholders = error_query.count('?')
+                    if area_id_parameter_only:
+                        if error_query:
+                            cursor.execute(error_query, (error_code, area_id))  # Adjusted to pass both error_code and area_id
+                    else:
+                        if error_query:
+                            cursor.execute(error_query, (error_code, area_id, year))  # Adjusted to pass error_code, area_id, and year
 
-                        if num_placeholders == 2:
-                            cursor.execute(error_query, (area_id, year))
-                        elif num_placeholders == 1:
-                            cursor.execute(error_query, (area_id,))
-
-                        if cursor.fetchone():
-                            error_status_flag = 1
-                            list_of_failed_areas.append(area_id)
+                    if cursor.fetchone():
+                        error_status_flag = 1
+                        list_of_failed_areas.append(area_id)
 
                     # Create ControlModel instance and append to control_models list
-                    control_model = ControlModel(area_id, year, error_code, error_name, error_poz_name,
-                                                 error_description,
+                    control_model = ControlModel(area_id, year, error_code, error_name, error_poz_name, error_description,
                                                  warning_flag, error_status_flag, error_query)
                     control_models.append(control_model)
 
@@ -2917,398 +2726,139 @@ class MonitoringTools:
 
         return control_models
 
-    def get_control_models(self):
-        control_models = []
-
+    def get_site_year_model(self, area_id):
+        site_year_model = None
+        db = None
+        cursor = None
         d_base = self.get_dBase_directory()
         if not d_base:
-            return control_models
-
+            return False
         year = self.selected_year
         query = """
-        SELECT kontrola_cd, kontrola_nm, kontrola_poz_nm, kod_opis, ostrzezenie_fl, kwerenda
-        FROM sl_kontrola;
+        SELECT 
+            stanowisko_nr, 
+            rok, 
+            kontrola_fl, 
+            rezygnacja_fl, 
+            uzasadnienie_rezygnacji, 
+            wartosci_przyrodnicze, 
+            uwagi, 
+            opis_stanowiska, 
+            opis_siedliska, 
+            zarzadzajacy_terenem, 
+            data_oceny, 
+            ocena_cd, 
+            komentarz_ocena_stanu_ochrony, 
+            x, 
+            y, 
+            z, 
+            z_min, 
+            z_max, 
+            powierzchnia,
+            
+        FROM 
+            stanowisko_rok
+        WHERE 
+            stanowisko_nr = ? AND rok = ?;
         """
+        # można dołożyć po "powierzchnia" jak bedziesz chciał rozkminiać bląd-uwaga
+        # 'status_code_placeholder' as status_code,  -- Replace with the actual status code column if it exists
+        # 0 as warnings_number,  -- Replace with the actual warnings number column if it exists
+        # 0 as errors_number  -- Replace with the actual errors number column if it exists
 
         try:
-            conn = sqlite3.connect(d_base)
-            cursor = conn.cursor()
-            cursor.execute(query)
-            rows = cursor.fetchall()
+            db = sqlite3.connect(d_base)
+            cursor = db.cursor()
+            cursor.execute(query, (area_id, year))
 
-            for row in rows:
-                control_model = ControlModel(
-                    area_id=None,
-                    year=None,
-                    error_code=row[0],
-                    error_name=row[1],
-                    error_poz_name=row[2],
-                    error_description=row[3],
-                    warning_flag=row[4],
-                    error_status_flag=None,
-                    error_query=row[5]
+            row = cursor.fetchone()
+            if row:
+                site_year_model = SiteYearModel(
+                    area_id=row[0],
+                    year=row[1],
+                    controll_flag=row[2],
+                    resignation_flag=row[3],
+                    cause_of_resignation=row[4],
+                    nature_values=row[5],
+                    comments=row[6],
+                    site_description=row[7],
+                    habitat_description=row[8],
+                    owner=row[9],
+                    date_of_controll=row[10],
+                    general_assessmnent=row[11],
+                    general_assessmnent_comments=row[12],
+                    x_coord=row[13],
+                    y_coord=row[14],
+                    z_coord=row[15],
+                    z_min=row[16],
+                    z_max=row[17],
+                    site_area=row[18],
+                    status_code=row[19],
+                    warnings_number=row[20],
+                    errors_number=row[21]
                 )
-                control_models.append(control_model)
-
-        except sqlite3.Error as e:
-            print(f"SQLite error occurred: {e}")
         except Exception as e:
-            print(f"Unexpected error occurred: {e}")
+            self.dockwidget.plainTextEdit_info.appendPlainText(f"Database Operation Error: Method: get_site_year_model: {e}")
         finally:
-            cursor.close()
-            conn.close()
+            if cursor:
+                cursor.close()
+            if db:
+                db.close()
 
-        return control_models
+        return site_year_model
 
-    def get_site_year_models(self):
-        site_year_models = []
+    def get_site_year_date_of_controll_model(self, area_id):
+        site_year_date_of_controll_model = None
+        db = None
+        cursor = None
         d_base = self.get_dBase_directory()
         if not d_base:
-            return site_year_models
-
+            return False
         year = self.selected_year
-        query = "SELECT DISTINCT stanowisko_nr FROM stanowisko_rok"
-        fetch_query = """
-        SELECT stanowisko_nr, rok, kontrola_fl, rezygnacja_fl, uzasadnienie_rezygnacji, wartosci_przyrodnicze, uwagi,
-               opis_stanowiska, opis_siedliska, zarzadzajacy_terenem, data_oceny, ocena_cd, komentarz_ocena_stanu_ochrony,
-               x, y, z, z_min, z_max, powierzchnia
-        FROM stanowisko_rok
-        WHERE stanowisko_nr = ? AND rok = ?;
+        query = """
+        SELECT 
+            stanowisko_nr, 
+            rok, 
+            data_oceny, 
+            availability,
+            description
+        FROM 
+            stanowisko_rok
+        WHERE 
+            stanowisko_nr = ? AND rok = ?;
         """
 
         try:
-            conn = sqlite3.connect(d_base)
-            cursor = conn.cursor()
-            cursor.execute(query)
-            rows = cursor.fetchall()
+            db = sqlite3.connect(d_base)
+            cursor = db.cursor()
+            cursor.execute(query, (area_id, year))
 
-            for row in rows:
-                area_id = row[0]
-                cursor.execute(fetch_query, (area_id, year))
-                result = cursor.fetchone()
-                if result:
-                    site_year_model = SiteYearModel(
-                        area_id=result[0], year=result[1], controll_flag=result[2], resignation_flag=result[3],
-                        cause_of_resignation=result[4], nature_values=result[5], comments=result[6],
-                        site_description=result[7], habitat_description=result[8], owner=result[9],
-                        date_of_controll=result[10], general_assessment=result[11],
-                        general_assessment_comments=result[12],
-                        x_coord=result[13], y_coord=result[14], z_coord=result[15], z_min=result[16], z_max=result[17],
-                        site_area=result[18]
-                    )
-                    site_year_models.append(site_year_model)
-
-        except sqlite3.Error as e:
-            print(f"SQLite error occurred: {e}")
+            row = cursor.fetchone()
+            if row:
+                site_year_date_of_controll_model = SiteYearDateOfControllModel(
+                    area_id=row[0],
+                    year=row[1],
+                    date_of_controll=row[2],
+                    availability=row[3],
+                    description=row[4]
+                )
         except Exception as e:
-            print(f"Unexpected error occurred: {e}")
+            self.dockwidget.plainTextEdit_info.appendPlainText(f"Database Operation Error: Method: get_site_year_date_of_controll_model: {e}")
         finally:
-            cursor.close()
-            conn.close()
+            if cursor:
+                cursor.close()
+            if db:
+                db.close()
 
-        return site_year_models
-
-    def get_site_year_date_of_control_models(self):
-        site_year_date_of_control_models = []
-        d_base = self.get_dBase_directory()
-        if not d_base:
-            return site_year_date_of_control_models
-
-        year = self.selected_year
-        query = "SELECT DISTINCT stanowisko_nr FROM stanowisko_rok_datakontroli"
-        fetch_query = """
-        SELECT stanowisko_nr, rok, data_kontroli, dostepnosc_cd, opis
-        FROM stanowisko_rok_datakontroli
-        WHERE stanowisko_nr = ? AND rok = ?;
-        """
-
-        try:
-            conn = sqlite3.connect(d_base)
-            cursor = conn.cursor()
-            cursor.execute(query)
-            rows = cursor.fetchall()
-
-            for row in rows:
-                area_id = row[0]
-                cursor.execute(fetch_query, (area_id, year))
-                result = cursor.fetchone()
-                if result:
-                    site_year_date_of_control_model = SiteYearDateOfControllModel(
-                        area_id=result[0], year=result[1], date_of_controll=result[2], availability=result[3],
-                        description=result[4]
-                    )
-                    site_year_date_of_control_models.append(site_year_date_of_control_model)
-
-        except sqlite3.Error as e:
-            print(f"SQLite error occurred: {e}")
-        except Exception as e:
-            print(f"Unexpected error occurred: {e}")
-        finally:
-            cursor.close()
-            conn.close()
-
-        return site_year_date_of_control_models
-
-
-
-    def execute_controls_based_on_conditions(self):
-        # Retrieve site year models and site year date of control models
-        site_year_models = self.get_site_year_models()
-        site_year_date_of_control_models = self.get_site_year_date_of_control_models()
-
-        # Define the additional error codes and chains
-        additional_error_codes_20000 = [20001, 20002, 20003, 20004, 20005, 20006, 20010, 20020, 20021]
-        conditional_error_pairs = {
-            10101: [10102],
-            10200: [10201],
-            10210: [10211],
-            10220: [10221],
-            10230: [10231],
-            10250: [10251, 10252],
-            10500: [10501, 10502],
-            10600: [10601, 10602],
-            10700: [10701, 10702, 10703, 10704, 10705],
-            30100: [30101, 30102],
-            30211: [30212],
-            30221: [30222],
-            30231: [30232]
-        }
-
-        # Define the error codes for each condition excluding additional error codes
-        resignation_flag_errors = [10001, 10002, 10020, 10010, 10100, 10101, 10200, 10210, 10220, 10230, 10240,
-                                   10250, 10260, 10270, 10271, 10280, 10281, 10290, 10300, 20000]
-        availability_errors = [10001, 10002, 10005, 10020, 10010, 10100, 10101, 10200, 10210, 10220, 10230, 10240,
-                               10250, 10260, 10270, 10271, 10280, 10281, 10290, 10300, 10500, 10600, 10700, 10800,
-                               20000, 30100, 30200, 30210, 30211, 30220, 30221, 30230, 30231, 30500]
-        rest_errors = [10002, 10020, 10101, 10200, 10210, 10220, 10230, 10250, 10260, 10270, 10271, 10280,
-                       10281, 10282, 10290, 10300]
-
-        # Initialize a list to store the comprehensive report
-        comprehensive_report = []
-
-        # Initialize progress dialog
-        num_areas = len(site_year_models)
-        progress_dialog = QProgressDialog("Kontroluję bazę...", "Cancel", 0, num_areas, self.dockwidget)
-        progress_dialog.setWindowModality(Qt.WindowModal)
-        progress_dialog.setValue(0)
-
-        # Execute control queries based on conditions
-        for idx, site_model in enumerate(site_year_models):
-            if progress_dialog.wasCanceled():
-                break
-
-            area_id = site_model.area_id
-            year = site_model.year
-            resignation_flag = site_model.resignation_flag
-            availability = None
-
-            # Find corresponding site year date of control model
-            for date_of_control_model in site_year_date_of_control_models:
-                if date_of_control_model.area_id == area_id and date_of_control_model.year == year:
-                    availability = date_of_control_model.availability
-                    break
-
-            # Determine which error codes to execute based on conditions
-            if resignation_flag == 1:
-                error_codes_to_execute = resignation_flag_errors
-            elif availability == 0:
-                error_codes_to_execute = availability_errors
-            else:
-                error_codes_to_execute = rest_errors
-
-            # Collect control results for the current area
-            area_report = []
-
-            # Execute control queries for determined error codes
-            for error_code in error_codes_to_execute:
-                control_results = self.get_control_results_for_specific_area(error_code, area_id)
-                for result in control_results:
-                    if result.error_status_flag != 0:
-                        area_report.append((area_id, year, error_code, result.error_name, result.warning_flag))
-
-                # Check ErrorStatusFlag for each conditional pair
-                if error_code in conditional_error_pairs:
-                    error_status_flag = control_results[0].error_status_flag if control_results else 1
-                    if error_status_flag == 0:
-                        follow_up_errors = conditional_error_pairs[error_code]
-
-                        # Handle specific nested check for 10500 and 10600
-                        if error_code in [10500, 10600]:
-                            for follow_up_error_code in follow_up_errors:
-                                follow_up_control_results = self.get_control_results_for_specific_area(
-                                    follow_up_error_code, area_id)
-                                for result in follow_up_control_results:
-                                    if result.error_status_flag != 0:
-                                        area_report.append((area_id, year, follow_up_error_code, result.error_name,
-                                                            result.warning_flag))
-                                    follow_up_error_status_flag = follow_up_control_results[
-                                        0].error_status_flag if follow_up_control_results else 1
-                                    if follow_up_error_status_flag == 0:
-                                        next_follow_up_errors = conditional_error_pairs.get(follow_up_error_code, [])
-                                        for next_follow_up_error_code in next_follow_up_errors:
-                                            next_follow_up_control_results = self.get_control_results_for_specific_area(
-                                                next_follow_up_error_code, area_id)
-                                            for result in next_follow_up_control_results:
-                                                if result.error_status_flag != 0:
-                                                    area_report.append((area_id, year, next_follow_up_error_code,
-                                                                        result.error_name, result.warning_flag))
-                        else:
-                            # For all other cases, execute all follow-up errors if main code has ErrorStatusFlag 0
-                            for follow_up_error_code in follow_up_errors:
-                                follow_up_control_results = self.get_control_results_for_specific_area(
-                                    follow_up_error_code, area_id)
-                                for result in follow_up_control_results:
-                                    if result.error_status_flag != 0:
-                                        area_report.append((area_id, year, follow_up_error_code, result.error_name,
-                                                            result.warning_flag))
-
-                # Check ErrorStatusFlag for ERROR CODE 20000
-                if error_code == 20000:
-                    error_status_flag = control_results[0].error_status_flag if control_results else 1
-                    if error_status_flag == 0:
-                        # Execute additional error codes if ErrorStatusFlag is 0
-                        for additional_error_code in additional_error_codes_20000:
-                            additional_control_results = self.get_control_results_for_specific_area(
-                                additional_error_code, area_id)
-                            for result in additional_control_results:
-                                if result.error_status_flag != 0:
-                                    area_report.append(
-                                        (area_id, year, additional_error_code, result.error_name, result.warning_flag))
-
-            # Add the area report to the comprehensive report
-            comprehensive_report.extend(area_report)
-
-            # Update the progress dialog
-            progress_dialog.setValue(idx + 1)
-
-        # Close the progress dialog
-        progress_dialog.close()
-
-        # Write the comprehensive report
-        self.write_comprehensive_report_to_csv(comprehensive_report)
-        # print("Control checks based on conditions have been executed.")
-
-    def write_comprehensive_report_to_csv(self, comprehensive_report):
-        # Define the directory and ensure it exists
-        report_directory = os.path.join(self.get_file_directory(), "monitoring_gis_tools_raporty_kontroli")
-        if not os.path.exists(report_directory):
-            os.makedirs(report_directory)
-
-        # Define the file name with the current date
-        current_date = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        report_name = f"Kompleksowy_raport_bazy_danych_{current_date}.csv"
-        file_path = os.path.join(report_directory, report_name)
-
-        # Define the headers and other information
-        name = "Kompleksowy raport bazy danych"
-        description = "Raport oparty na kwerendach używanych przez mMonitoring."
-        header = ['Nr płatu', 'Rok', 'Ostrzeżenie', 'Kod blędu', 'Opis błędu']
-
-        # Write the CSV file
-        with open(file_path, 'w', encoding='cp1250', newline='') as csvfile:
-            writer = csv.writer(csvfile, delimiter=';')
-
-            # Write the header information
-            writer.writerow([name])
-            writer.writerow([description])
-            writer.writerow(['Wygenerowano: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
-            writer.writerow([])
-            writer.writerow(header)
-
-            # Write the data rows
-            for area_id, year, error_code, error_name, warning_flag in comprehensive_report:
-                warning_flag_text = 'Tak' if warning_flag == 1 else ''
-                writer.writerow([area_id, year, warning_flag_text, error_code, error_name])
-
-    def run2_control_30100(self):
-        self.get_control_results_for_all_areas(10252)
-
-    def run_control_20021(self):
-        self.get_error_result_by_error_code(20021)
-
-    def run_control_10800(self):
-        self.get_error_result_by_error_code(10800)
-
+        return site_year_date_of_controll_model
 
     #  !!!
     # W tym przykładzie wywołania masz print, który wywala Ci cały zebrany słownik danych i informacji
     # def run2_control_30100(self):
-    #     results = self.get_control_results_for_all_areas(10252, True)
+    #     results = self.get_control_results_for_all_areas(30100, True)
     #     for result in results:
     #         self.appendDataToPlainTextEdit(f"Control Model: {result.__dict__}", self.dockwidget.plainTextEdit_info)
     # !!!
-
-    def export_all_tables_to_csv(self):
-        """
-        Export all tables from an Access database (.mdb) to CSV files using COM interface.
-        """
-        db_path = r'D:\mSWPS\szablonBS.mdb'  # Path to the Access database file
-        export_path = r'D:\mSWPS\TABELE'  # Directory path where CSV files will be saved
-
-        # Ensure export path exists
-        if not os.path.exists(export_path):
-            os.makedirs(export_path)
-
-        # Create Access application object
-        access_app = win32com.client.Dispatch("Access.Application")
-        access_app.Visible = False  # Optional: keep Access invisible
-
-        try:
-            # Open the database
-            db = access_app.DBEngine.OpenDatabase(db_path)
-
-            # Get list of tables
-            table_defs = db.TableDefs
-
-            for table in table_defs:
-                table_name = table.Name
-                print(f'Exporting table: {table_name}')
-
-                # Use DAO to open the table and read data
-                dao_db = access_app.DBEngine.OpenDatabase(db_path)
-                dao_table = dao_db.TableDefs[table_name]
-                recordset = dao_table.OpenRecordset()
-
-                # Create a list to hold the rows
-                rows = []
-
-                # Get column headers
-                columns = [field.Name for field in recordset.Fields]
-
-                # Check if the recordset contains records
-                if recordset.RecordCount > 0:
-                    recordset.MoveFirst()  # Move to the first record
-
-                    while not recordset.EOF:
-                        row = []
-                        for field in recordset.Fields:
-                            row.append(field.Value)
-                        rows.append(row)
-                        recordset.MoveNext()  # Move to the next record
-
-                else:
-                    print(f"Table {table_name} is empty. Exporting structure only.")
-
-                # Create a pandas DataFrame to hold the data (even if it's empty)
-                df = pd.DataFrame(rows, columns=columns)
-
-                # Export DataFrame to CSV
-                csv_file_path = os.path.join(export_path, f'{table_name}.csv')
-                df.to_csv(csv_file_path, index=False, sep=';')  # Use semicolon as delimiter
-
-                # Clean up
-                recordset.Close()
-                dao_db.Close()
-
-            print("Export completed!")
-
-        except Exception as e:
-            print(f"An error occurred: {e}")
-        finally:
-            # Clean up
-            access_app.Quit()
-            del access_app
-
 
     # Metody kontroli -dodawane po opracowaniu SQL dla WebMonitoring
 
@@ -3730,15 +3280,14 @@ class MonitoringTools:
     def compatibilyty_check_tools(self):
 
         # Clear info labels
-        self.clearPlainTextEditInfo()
+        self.clear_info_labels()
 
         # Dbase address
         d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
 
         # check if base exist
         if not (str(d_base)):
-            self.appendDataToPlainTextEdit(f"Nie wskazano bazy danych!",
-                                           self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
             return False
 
         # Declare connections
@@ -3751,8 +3300,7 @@ class MonitoringTools:
         layer = self.dockwidget.mMapLayerComboBoxAraesPolygon.currentLayer()
 
         if not (layer):
-            self.appendDataToPlainTextEdit(f"Nie wskazano warstwy",
-                                           self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wskazano warstwy!")
             return False
 
 
@@ -3785,25 +3333,34 @@ class MonitoringTools:
         for data_layer in area_list_from_layer:
             if data_layer not in ara_list_from_dBase:
                 exist_is_layer.append(data_layer)
-        self.appendDataToPlainTextEdit(f"Raporty kontroli (*.csv): " + self.get_file_directory() + "/monitoring_gis_tools_raporty_kontroli",
-                                       self.dockwidget.plainTextEdit_info)
 
-        self.appendDataToPlainTextEdit("", self.dockwidget.plainTextEdit_info)
-        self.appendDataToPlainTextEdit(f"Powierzchnie istniejące zarówno w warstwie i w bazie danych:", self.dockwidget.plainTextEdit_info)
+        self.appendDataToLabel("Raporty kontroli (*.csv): " + self.get_file_directory() + "/monitoring_gis_tools_raporty_kontroli", self.dockwidget.label_info)
+
+        self.appendDataToLabel("", self.dockwidget.label_info)
+        self.appendDataToLabel("Powierzchnie istniejące zarówno w warstwie i w bazie danych:", self.dockwidget.label_info)
+        print("Powierzchnie istniejące w warstwie i w bazie:")
         for data in exist_in_both:
-            self.appendDataToPlainTextEdit(str(data), self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel(str(data), self.dockwidget.label_info)
+            print(str(data))
         self.generate_csv_reports("Powierzchnie istniejące zarówno w warstwie i w bazie danych", ["ID_STANOWISKA"], exist_in_both, "monitoring_gis_tools_raporty_kontroli", "03011_wykaz_powierzchni_zgodnych_mapa_baza.csv")
 
-        self.appendDataToPlainTextEdit("", self.dockwidget.plainTextEdit_info)
-        self.appendDataToPlainTextEdit(f"Powierzchnie istniejące w bazie danych a nie istniejące w warstwie:", self.dockwidget.plainTextEdit_info)
+
+
+        self.appendDataToLabel("", self.dockwidget.label_warning)
+        self.appendDataToLabel("Powierzchnie istniejące w bazie danych a nie istniejące w warstwie:", self.dockwidget.label_warning)
+        print("Powierzchnie istniejące wyłącznie w bazie danych:")
         for data in exist_id_dbase:
-            self.appendDataToPlainTextEdit(str(data), self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel(str(data), self.dockwidget.label_warning)
+            print(str(data))
         self.generate_csv_reports("Powierzchnie istniejące w bazie danych a nie istniejące w warstwie", ["ID_STANOWISKA"], exist_id_dbase, "monitoring_gis_tools_raporty_kontroli","03012_wykaz_powierzchni_isnt_wylacznie_w_bazie.csv")
 
-        self.appendDataToPlainTextEdit("", self.dockwidget.plainTextEdit_info)
-        self.appendDataToPlainTextEdit(f"Powierzchnie istniejące w warstwie a nie istniejące w bazie danych:", self.dockwidget.plainTextEdit_info)
+
+        self.appendDataToLabel("", self.dockwidget.label_warning)
+        self.appendDataToLabel("Powierzchnie istniejące w warstwie a nie istniejące w bazie danych:", self.dockwidget.label_warning)
+        print("Powierzchnie istniejące wyłącznie w warstwie:")
         for data in exist_is_layer:
-            self.appendDataToPlainTextEdit(str(data), self.dockwidget.plainTextEdit_info)
+            self.appendDataToLabel(str(data), self.dockwidget.label_warning)
+            print(str(data))
         self.generate_csv_reports("Powierzchnie istniejące w warstwie a nie istniejące w bazie danych", ["ID_STANOWISKA"], exist_is_layer, "monitoring_gis_tools_raporty_kontroli","03013_wykaz_powierzchni_isnt_wylacznie_w_warstwie.csv")
 
 
@@ -4265,202 +3822,26 @@ class MonitoringTools:
 
         return True
 
-    # def make_buffer_area(self):
-    #     # Clear info labels
-    #     self.clearPlainTextEditInfo()
-    #     self.removeMapLayerByName('polygonized_layer')
-    #     self.removeMapLayerByName('CLC_2018')
-    #
-    #     layer = self.dockwidget.mMapLayerComboBoxAraesPolygon.currentLayer()
-    #     additional_height = self.dockwidget.lineEdit_additional_height.text().replace(",", ".")
-    #     reduced_height = self.dockwidget.lineEdit_reduced_height.text().replace(",", ".")
-    #
-    #     if not layer:
-    #         self.dockwidget.plainTextEdit_info.appendPlainText("Nie wskazano warstwy!")
-    #         return False
-    #
-    #     # Check if 'SIEDL' field exists
-    #     fields = layer.fields()
-    #     if "SIEDL" not in fields.names():
-    #         self.dockwidget.plainTextEdit_info.appendPlainText("Warstwa nie zawiera pola 'SIEDL'!")
-    #         return False
-    #
-    #     # Get selected features
-    #     feature_to_analyze = layer.selectedFeatures()
-    #
-    #     if not feature_to_analyze:
-    #         self.dockwidget.plainTextEdit_info.appendPlainText("Nie wybrano żadnych obiektów!")
-    #         return False
-    #
-    #     # Get the value of 'SIEDL' for the first selected feature
-    #     siedl_value = feature_to_analyze[0].attribute("SIEDL")
-    #
-    #     # Define paths based on the 'SIEDL' field values
-    #     path_1_values = str([1310, 1330, 1340])
-    #     path_2_values = str([7110, 7120, 7140, 7150, 7210, 7220, 7230, '91D0', '91E0'])
-    #
-    #
-    #     # Determine the path or skip if no matching value
-    #     if siedl_value in path_1_values:
-    #         self.dockwidget.plainTextEdit_info.appendPlainText("Using Path 1 for SIEDL: " + str(siedl_value))
-    #
-    #         # Set buffer parameters for Path 1
-    #         additional_height = 1
-    #         reduced_height = 1
-    #         max_buffer_width = 30
-    #
-    #         # Create a temporary layer for the selected features
-    #         temp_layer = QgsVectorLayer("Polygon?crs=" + layer.crs().authid(), "temp_buffer", "memory")
-    #         temp_layer.dataProvider().addFeatures(feature_to_analyze)
-    #
-    #         raster_layer = self.dockwidget.mMapLayerComboBox_nmt_raster.currentLayer()
-    #
-    #         # Clip raster by selected feature
-    #         result = processing.run("gdal:cliprasterbymasklayer", {
-    #             'INPUT': raster_layer,
-    #             'MASK': temp_layer,
-    #             'SOURCE_CRS': QgsCoordinateReferenceSystem('EPSG:2180'),
-    #             'TARGET_CRS': QgsCoordinateReferenceSystem('EPSG:2180'),
-    #             'TARGET_EXTENT': None,
-    #             'NODATA': None,
-    #             'ALPHA_BAND': False,
-    #             'CROP_TO_CUTLINE': True,
-    #             'KEEP_RESOLUTION': False,
-    #             'SET_RESOLUTION': False,
-    #             'X_RESOLUTION': None,
-    #             'Y_RESOLUTION': None,
-    #             'MULTITHREADING': False,
-    #             'OPTIONS': '',
-    #             'DATA_TYPE': 0,
-    #             'EXTRA': '',
-    #             'OUTPUT': 'TEMPORARY_OUTPUT'})
-    #         cut_result_raster = QgsRasterLayer(result['OUTPUT'], 'result_layer')
-    #
-    #         # Calculate statistics
-    #         provider = cut_result_raster.dataProvider()
-    #         ext = cut_result_raster.extent()
-    #         stats = provider.bandStatistics(1, QgsRasterBandStats.All, ext, 0)
-    #
-    #         self.appendDataToPlainTextEdit("Minimalna wysokość: " + str(round(stats.minimumValue, 2)) + " m",
-    #                                        self.dockwidget.plainTextEdit_info)
-    #         self.appendDataToPlainTextEdit("Maksymalna wysokość: " + str(round(stats.maximumValue, 2)) + " m",
-    #                                        self.dockwidget.plainTextEdit_info)
-    #         self.appendDataToPlainTextEdit("Średnia wysokość: " + str(round(stats.mean, 2)) + " m",
-    #                                        self.dockwidget.plainTextEdit_info)
-    #         self.appendDataToPlainTextEdit("Odchylenie standardowe: " + str(round(stats.stdDev, 2)),
-    #                                        self.dockwidget.plainTextEdit_info)
-    #
-    #         # Create the buffer
-    #         result = processing.run("native:buffer", {
-    #             'INPUT': temp_layer,
-    #             'DISTANCE': max_buffer_width,
-    #             'SEGMENTS': 5,
-    #             'END_CAP_STYLE': 0,
-    #             'JOIN_STYLE': 0,
-    #             'MITER_LIMIT': 2,
-    #             'DISSOLVE': False,
-    #             'OUTPUT': 'memory:'})
-    #         buffer_layer = result['OUTPUT']
-    #         buffer_layer.setName('buffer')
-    #
-    #         QgsProject.instance().addMapLayer(buffer_layer)
-    #
-    #         # Load Corine Land Cover (CLC_2018) layer if not already loaded
-    #         clc_layer = QgsProject.instance().mapLayersByName('CLC_2018')
-    #         if not clc_layer:
-    #             dirnameOfCatalog = self.resolveDir('u2018_clc2018_v2020_20u1_geoPackage')
-    #             geopackage_path = os.path.join(dirnameOfCatalog, "DATA", "U2018_CLC2018_V2020_20u1_PL.gpkg")
-    #             qml_path = os.path.join(dirnameOfCatalog, "Legend", "clc_legend.qml")
-    #
-    #             clclayer = self.iface.addVectorLayer(geopackage_path, "CLC_2018", "ogr")
-    #             if clclayer:
-    #                 clclayer.loadNamedStyle(qml_path)
-    #                 clclayer.triggerRepaint()
-    #
-    #             QgsProject.instance().addMapLayer(clclayer)
-    #             clc_layer = clclayer
-    #
-    #         # Nearest agricultural area (code: 211, 221)
-    #         agricultural_expr = '"code_18" IN (211, 221)'
-    #         nearest_agri = processing.run("qgis:nearestneighbouranalysis", {
-    #             'INPUT': buffer_layer,
-    #             'NEIGHBORS': 1,
-    #             'INPUT_2': clc_layer,
-    #             'FIELD': 'code_18',
-    #             'OUTPUT': 'memory:'})
-    #
-    #         # Extract distance and direction from nearest agricultural area
-    #         nearest_layer = nearest_agri['OUTPUT']
-    #         nearest_feature = next(nearest_layer.getFeatures())
-    #         distance = nearest_feature['Distance']
-    #         angle = nearest_feature['Angle']
-    #
-    #         # Add info to buffer layer's attribute table
-    #         buffer_layer.startEditing()
-    #         buffer_layer.dataProvider().addAttributes([
-    #             QgsField("agri_dist", QVariant.Double),
-    #             QgsField("agri_dir", QVariant.Double)
-    #         ])
-    #         buffer_layer.updateFields()
-    #
-    #         # Update buffer feature with distance and direction
-    #         for feature in buffer_layer.getFeatures():
-    #             feature['agri_dist'] = distance
-    #             feature['agri_dir'] = angle
-    #             buffer_layer.updateFeature(feature)
-    #
-    #         buffer_layer.commitChanges()
-    #
-    #         # Check if distance <= 50 m and extend buffer if necessary
-    #         if distance <= 50:
-    #             # Extend buffer in that direction
-    #             buffer_extend_result = processing.run("native:buffer", {
-    #                 'INPUT': temp_layer,
-    #                 'DISTANCE': max_buffer_width,
-    #                 'SEGMENTS': 5,
-    #                 'END_CAP_STYLE': 0,
-    #                 'JOIN_STYLE': 0,
-    #                 'MITER_LIMIT': 2,
-    #                 'DISSOLVE': False,
-    #                 'OUTPUT': 'memory:'})
-    #             extended_buffer = buffer_extend_result['OUTPUT']
-    #             extended_buffer.setName('extended_buffer')
-    #
-    #             QgsProject.instance().addMapLayer(extended_buffer)
-    #
-    #     elif siedl_value in path_2_values:
-    #         self.dockwidget.plainTextEdit_info.appendPlainText("Using Path 2 for SIEDL: " + str(siedl_value))
-    #
-    #     else:
-    #         self.dockwidget.plainTextEdit_info.appendPlainText(
-    #             "Brak odpowiedniej wartości w polu 'SIEDL'. Nie tworzę bufora.")
-    #         return False
-
     def make_buffer_area(self):
-        # Clear info labels using the new method
-        self.clearPlainTextEditInfo()
+
+        # Clear info labels
+        self.clear_info_labels()
         self.removeMapLayerByName('polygonized_layer')
 
-        # Get selected layer and input parameters
         layer = self.dockwidget.mMapLayerComboBoxAraesPolygon.currentLayer()
         additional_height = self.dockwidget.lineEdit_additional_height.text().replace(",", ".")
         reduced_height = self.dockwidget.lineEdit_reduced_height.text().replace(",", ".")
 
-        if not layer:
-            self.dockwidget.plainTextEdit_info.appendPlainText("Nie wskazano warstwy!")
+        if not (layer):
+            self.dockwidget.label_warning.setText("Nie wskazano warstwy!")
             return False
 
-        # Get selected features to analyze
         feature_to_analize = layer.selectedFeatures()
-
-        if not feature_to_analize:
-            self.dockwidget.plainTextEdit_info.appendPlainText("Nie wybrano obiektu do analizy!")
-            return False
 
         # Create a temporary layer for the selected features
         temp_layer = QgsVectorLayer("Polygon?crs=" + layer.crs().authid(), "temp_buffer", "memory")
         temp_layer.dataProvider().addFeatures(feature_to_analize)
-
+        # QgsProject.instance().addMapLayer(temp_layer)
 
         raster_layer = self.dockwidget.mMapLayerComboBox_nmt_raster.currentLayer()
 
@@ -4494,10 +3875,10 @@ class MonitoringTools:
         ext = cut_result_raster.extent()
         stats = provider.bandStatistics(1, QgsRasterBandStats.All, ext, 0)
 
-        self.appendDataToPlainTextEdit("Minmalna wysokość: " + str(round(stats.minimumValue,2)) + " m", self.dockwidget.plainTextEdit_info)
-        self.appendDataToPlainTextEdit("Maksymalna wysokość: " + str(round(stats.maximumValue,2)) + " m", self.dockwidget.plainTextEdit_info)
-        self.appendDataToPlainTextEdit("średnia wysokość: " + str(round(stats.mean,2)) + " m", self.dockwidget.plainTextEdit_info)
-        self.appendDataToPlainTextEdit("Odchylenie standardowe: " + str(round(stats.stdDev,2)), self.dockwidget.plainTextEdit_info)
+        self.appendDataToLabel("Minmalna wysokość: " + str(round(stats.minimumValue,2)) + " m", self.dockwidget.label_info)
+        self.appendDataToLabel("Maksymalna wysokość: " + str(round(stats.maximumValue,2)) + " m", self.dockwidget.label_info)
+        self.appendDataToLabel("średnia wysokość: " + str(round(stats.mean,2)) + " m", self.dockwidget.label_info)
+        self.appendDataToLabel("Odchylenie standardowe: " + str(round(stats.stdDev,2)), self.dockwidget.label_info)
 
 
 
@@ -4547,6 +3928,8 @@ class MonitoringTools:
         # expresion = f'((A < {max_buffer_heigth}))'
 
 
+
+
         if self.dockwidget.checkBox_analize_min_heigth.isChecked():
             expresion = f'(A > {min_buffer_heigth})*(A <= {max_buffer_heigth}) * 2'
         else:
@@ -4574,337 +3957,8 @@ class MonitoringTools:
 
         QgsProject.instance().addMapLayer(polygonized_layer)
 
-        self.check_nearby_clc_polygons(temp_layer, feature_to_analize)
 
-        return True
 
-    def calculate_azimuth(self, p1, p2):
-        """
-        Calculates the azimuth (angle in degrees) from point p1 to point p2.
-        Returns a value between 0 and 360, where 0 is north, 90 is east, 180 is south, and 270 is west.
-        """
-        dx = p2.x() - p1.x()
-        dy = p2.y() - p1.y()
-        angle = math.degrees(math.atan2(dx, dy))
-        return (angle + 360) % 360  # Ensure the angle is positive
-
-    def azimuth_to_cardinal(self, azimuth):
-        """
-        Converts azimuth in degrees to a cardinal direction.
-        """
-        directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N']  # N is repeated to handle wrapping
-        idx = int((azimuth + 22.5) // 45)  # Divide azimuth into 8 segments of 45 degrees
-        return directions[idx]
-
-    def extend_in_azimuth(self, buffer_layer, feature_geom, azimuth, max_buffer_width):
-        if feature_geom.isEmpty() or not feature_geom.isGeosValid():
-            self.dockwidget.plainTextEdit_info.appendPlainText("Invalid or empty feature geometry.")
-            return None
-
-        # Convert azimuth to radians for trig functions
-        azimuth_radians = math.radians(azimuth)
-        dx = max_buffer_width * math.sin(azimuth_radians)
-        dy = max_buffer_width * math.cos(azimuth_radians)
-
-        # Get the exterior ring of the polygon (outer boundary)
-        if feature_geom.isMultipart():
-            exterior_ring = feature_geom.asMultiPolygon()[0][0]  # For multi-part geometries
-        else:
-            exterior_ring = feature_geom.asPolygon()[0]  # For single-part geometries
-
-        # Create a list to store the new vertices
-        new_vertices = []
-
-        for vertex in exterior_ring:
-            point = QgsPointXY(vertex)
-            # Calculate the new position for the vertex along the azimuth
-            new_x = point.x() + dx
-            new_y = point.y() + dy
-            new_point = QgsPointXY(new_x, new_y)
-
-            # Replace the original vertex with the extended one
-            new_vertices.append(new_point)
-
-        # Create a new geometry from the extended vertices
-        new_polygon_geom = QgsGeometry.fromPolygonXY([new_vertices])
-
-        # Optionally smooth the geometry to avoid rough corners
-        smoothing_factor = int(max_buffer_width / 10)  # Cast to integer
-        smoothed_geom = new_polygon_geom.smooth(smoothing_factor)
-
-        # Return the smoothed extended geometry
-        return smoothed_geom
-
-    def create_point_from_azimuth(self, point, azimuth, distance):
-
-        # Convert azimuth to radians for trig functions
-        azimuth_radians = math.radians(azimuth)
-        dx = distance * math.sin(azimuth_radians)
-        dy = distance * math.cos(azimuth_radians)
-        return QgsPointXY(point.x() + dx, point.y() + dy)
-
-    def check_nearby_clc_polygons(self, temp_layer, feature_to_analize):
-        # Ensure CLC layer is loaded
-        clc_layer = QgsProject.instance().mapLayersByName('CLC_2018')
-        if not clc_layer:
-            # Load CLC layer from GeoPackage if not already loaded
-            dirnameOfCatalog = self.resolveDir('u2018_clc2018_v2020_20u1_geoPackage')
-            geopackage_path = os.path.join(dirnameOfCatalog, "DATA", "U2018_CLC2018_V2020_20u1_PL.gpkg")
-            qml_path = os.path.join(dirnameOfCatalog, "Legend", "clc_legend.qml")
-
-            clc_layer = self.iface.addVectorLayer(geopackage_path, "CLC_2018", "ogr")
-            if clc_layer:
-                clc_layer.loadNamedStyle(qml_path)
-                clc_layer.triggerRepaint()
-
-            QgsProject.instance().addMapLayer(clc_layer)
-
-        clc_layer = QgsProject.instance().mapLayersByName('CLC_2018')[0]  # Ensure correct reference
-
-        # Define the CLC codes to look for
-        clc_codes = ['211', '221', '222', '223', '241', '242', '243', '244']
-
-        # Select CLC polygons based on the specific codes
-        expression = f'"Code_18" IN ({", ".join([repr(code) for code in clc_codes])})'
-        clc_layer.selectByExpression(expression)
-
-        # Analyze the selected feature geometry from the temp_layer
-        for feature in feature_to_analize:
-            feature_geom = feature.geometry()
-            feature_centroid = feature_geom.centroid().asPoint()  # Get centroid of the chosen polygon
-
-            # Find all CLC polygons within 100m from the feature geometry
-            nearby_clc_polygons = []
-            max_distance = 100.0  # Max search radius
-
-            for clc_feature in clc_layer.getSelectedFeatures():
-                clc_geom = clc_feature.geometry()
-                clc_centroid = clc_geom.centroid().asPoint()  # Get centroid of the CLC polygon
-
-                # Measure distance from the selected feature to the CLC polygon boundary
-                distance = feature_geom.distance(clc_geom)
-                if distance <= max_distance:
-                    azimuth = self.calculate_azimuth(QgsPointXY(feature_centroid), QgsPointXY(clc_centroid))
-                    direction = self.azimuth_to_cardinal(azimuth)
-                    nearby_clc_polygons.append((clc_feature, distance, direction, azimuth))
-
-            # Handle the result if any nearby CLC polygons are found
-            if nearby_clc_polygons:
-                for clc_feature, distance, direction, azimuth in nearby_clc_polygons:
-                    clc_code = clc_feature['Code_18']
-                    self.dockwidget.plainTextEdit_info.appendPlainText(
-                        f'Found CLC polygon with Code_18 = {clc_code} within {distance:.2f} meters to the {direction}'
-                    )
-
-                    # Extend the polygonized layer in the direction of the CLC polygon
-                    self.extend_polygon_to_clc(temp_layer, feature, azimuth, clc_layer)
-
-            else:
-                self.dockwidget.plainTextEdit_info.appendPlainText("No nearby CLC polygons found within 100 meters.")
-
-    def extend_polygon_to_clc(self, buffer_layer, feature, azimuth, clc_layer):
-        """
-        Extend the polygon feature in the direction of the azimuth toward CLC polygons.
-
-        :param buffer_layer: The temporary buffer layer where the extended polygon is stored.
-        :param feature: The feature to be extended (QgsFeature).
-        :param azimuth: The direction in degrees where the polygon should be extended.
-        :param clc_layer: The CLC layer used to check for nearby polygons.
-        """
-
-        # Get the geometry of the feature and its centroid
-        feature_geom = feature.geometry()
-        feature_centroid = feature_geom.centroid().asPoint()
-
-        # Set a maximum buffer width (distance to extend the polygon)
-        max_buffer_width = 30  # Example value, can be modified based on logic
-
-        # Extend the polygon in the specified azimuth direction
-        extended_geom = self.extend_in_azimuth(buffer_layer, feature_geom, azimuth, max_buffer_width)
-
-        if extended_geom:
-            # Create a new feature for the extended polygon
-            new_feature = QgsFeature()
-
-            # Set the extended geometry to the new feature
-            new_feature.setGeometry(extended_geom)
-
-            # Optionally, copy attributes from the original feature
-            new_feature.setAttributes(feature.attributes())
-
-            # Add the new extended feature to the buffer layer
-            buffer_layer.dataProvider().addFeature(new_feature)
-
-            # Log success message
-            self.dockwidget.plainTextEdit_info.appendPlainText(
-                f"Polygon extended towards azimuth {azimuth} degrees and added to the layer."
-            )
-        else:
-            # Log failure message
-            self.dockwidget.plainTextEdit_info.appendPlainText("Failed to extend polygon.")
-
-        """
-        # Extends the given polygon (feature) in the direction of the nearest CLC polygon by the max buffer width.
-        # This version includes creating a buffer, cutting it, deleting unnecessary parts, and merging with polygonized_layer.
-        # """
-        # feature_geom = feature.geometry()
-        # feature_centroid = feature_geom.centroid().asPoint()
-        # max_buffer_width = float(self.dockwidget.lineEdit_max_buffer_width.text())
-        #
-        # polygonized_layers = QgsProject.instance().mapLayersByName("polygonized_layer")
-        #
-        # if not polygonized_layers:
-        #     self.dockwidget.plainTextEdit_info.appendPlainText("Polygonized layer not found.")
-        #     return
-        #
-        # polygonized_layer = polygonized_layers[0]  # Get the first matching layer
-        #
-        # # Step 1: Create a buffer layer from the selected feature
-        # buffer_distance = max_buffer_width
-        # buffer_geom = feature_geom.buffer(buffer_distance, 5)  # Create buffer geometry
-        #
-        # if not buffer_geom or buffer_geom.isEmpty():
-        #     self.dockwidget.plainTextEdit_info.appendPlainText("Failed to create buffer geometry.")
-        #     return
-        #
-        # # Create a QgsFeature and set its geometry
-        # buffer_feature = QgsFeature()
-        # buffer_feature.setGeometry(buffer_geom)
-        #
-        # # Create a new buffer layer and add the buffer feature
-        # buffer_layer = QgsVectorLayer("Polygon?crs=" + layer.crs().authid(), "buffer_layer", "memory")
-        # buffer_layer.dataProvider().addFeatures([buffer_feature])
-        # QgsProject.instance().addMapLayer(buffer_layer)  # Show buffer on the map
-        #
-        # # Step 2: Calculate the longest distance across the buffer and create an orthogonal cut line
-        # buffer_extent = buffer_geom.boundingBox()
-        # longest_distance = max(buffer_extent.width(), buffer_extent.height()) + 100
-        #
-        # # Find nearest CLC polygon and its direction
-        # nearest_clc_feat = None
-        # min_distance = float("inf")
-        #
-        # for clc_feature in clc_layer.getFeatures():
-        #     clc_geom = clc_feature.geometry()
-        #     distance = feature_geom.distance(clc_geom)
-        #     if distance < min_distance:
-        #         min_distance = distance
-        #         nearest_clc_feat = clc_feature
-        #
-        # if not nearest_clc_feat:
-        #     self.dockwidget.plainTextEdit_info.appendPlainText("No nearby CLC polygon found.")
-        #     return
-        #
-        # # Calculate the nearest point from the feature to the CLC polygon
-        # nearest_clc_geom = nearest_clc_feat.geometry()
-        # nearest_point_on_clc = nearest_clc_geom.nearestPoint(feature_geom).asPoint()  # Ensure this is a point
-        #
-        # # Calculate the azimuth to the CLC polygon
-        # azimuth_to_clc = self.calculate_azimuth(QgsPointXY(feature_centroid), QgsPointXY(nearest_point_on_clc))
-        # orthogonal_azimuth = (azimuth_to_clc) % 360  # Orthogonal angle adjustment
-        #
-        # # Create the cutting line endpoints
-        # cut_line_start = QgsPointXY(
-        #     feature_centroid.x() + (longest_distance / 2) * math.sin(math.radians(orthogonal_azimuth)),
-        #     feature_centroid.y() + (longest_distance / 2) * math.cos(math.radians(orthogonal_azimuth))
-        # )
-        # cut_line_end = QgsPointXY(
-        #     feature_centroid.x() - (longest_distance / 2) * math.sin(math.radians(orthogonal_azimuth)),
-        #     feature_centroid.y() - (longest_distance / 2) * math.cos(math.radians(orthogonal_azimuth))
-        # )
-        #
-        # cut_line = QgsGeometry.fromPolylineXY([cut_line_start, cut_line_end])  # Create cutting line
-        #
-        # # Create a temporary memory layer for the cut line
-        # cut_line_layer = QgsVectorLayer("LineString?crs=" + layer.crs().authid(), "cut_line_layer", "memory")
-        # cut_line_provider = cut_line_layer.dataProvider()
-        # cut_line_feature = QgsFeature()
-        # cut_line_feature.setGeometry(cut_line)
-        # cut_line_provider.addFeatures([cut_line_feature])
-        # QgsProject.instance().addMapLayer(cut_line_layer)  # Add to the project for visibility
-        #
-        # # Step 3: Split the buffer layer by the cut line using the splitwithlines algorithm
-        # split_result = processing.run("native:splitwithlines", {
-        #     'INPUT': buffer_layer,
-        #     'LINES': cut_line_layer,
-        #     'OUTPUT': 'memory:'
-        # })
-        #
-        # split_buffer_layer = split_result['OUTPUT']
-        #
-        # # Add the split buffer layer to TOC
-        # QgsProject.instance().addMapLayer(split_buffer_layer)  # Show the split buffer layer
-        #
-        # # Step 4: Determine which side of the cut line to keep
-        # if split_buffer_layer.featureCount() == 0:
-        #     self.dockwidget.plainTextEdit_info.appendPlainText("No split features found.")
-        #     return
-        #
-        # retained_geometries = []
-        #
-        # # Check each split feature to see if it's on the CLC side
-        # for split_feature in split_buffer_layer.getFeatures():
-        #     split_geom = split_feature.geometry()
-        #     if self.is_on_clc_side(split_geom, cut_line_start, cut_line_end, nearest_clc_geom):
-        #         retained_geometries.append(split_geom)
-        #
-        # if not retained_geometries:
-        #     self.dockwidget.plainTextEdit_info.appendPlainText("No valid geometry found on the CLC side.")
-        #     return
-        #
-        # # Step 5: Merge retained geometries into the polygonized_layer
-        # polygonized_layer.startEditing()  # Start editing the polygonized layer
-        #
-        # # Merge all retained geometries into a single geometry
-        # merged_geom = QgsGeometry.unaryUnion(retained_geometries)
-        #
-        # # Ensure the feature exists before updating
-        # existing_feature = polygonized_layer.getFeature(feature.id())
-        # if not existing_feature:
-        #     self.dockwidget.plainTextEdit_info.appendPlainText(
-        #         f"Feature ID {feature.id()} not found in polygonized layer.")
-        #     polygonized_layer.rollBack()  # Rollback changes if the feature is not found
-        #     return
-        #
-        # # Update the polygonized layer with the merged geometry
-        # polygonized_layer.changeGeometry(existing_feature.id(), merged_geom)
-        #
-        # # Commit changes to the polygonized layer
-        # if not polygonized_layer.commitChanges():
-        #     self.dockwidget.plainTextEdit_info.appendPlainText("Failed to commit changes to polygonized layer.")
-        #     return
-        #
-        # # Clean up
-        # layer.commitChanges()  # Commit changes to the original layer
-        #
-        # self.dockwidget.plainTextEdit_info.appendPlainText(
-        #     f"Geometry of feature {feature.id()} successfully updated with CLC polygons."
-        # )
-        #
-        # # Refresh the layer on the map
-        # polygonized_layer.triggerRepaint()
-        # self.iface.mapCanvas().refresh()
-
-    def is_on_clc_side(self, geom, cut_line_start, cut_line_end, clc_geom):
-        """
-        Determines whether the given geometry is on the CLC side of the cut line.
-        This function checks the position of the geometry centroid relative to the cut line.
-        """
-        # Create vectors for the cut line
-        cut_line_vector = QgsPointXY(cut_line_end.x() - cut_line_start.x(), cut_line_end.y() - cut_line_start.y())
-
-        clc_centroid = clc_geom.centroid().asPoint()
-        geom_centroid = geom.centroid().asPoint()
-
-        # Calculate the vectors from the cut line start to the centroids
-        geom_vector = QgsPointXY(geom_centroid.x() - cut_line_start.x(), geom_centroid.y() - cut_line_start.y())
-        clc_vector = QgsPointXY(clc_centroid.x() - cut_line_start.x(), clc_centroid.y() - cut_line_start.y())
-
-        # Cross product to determine the relative position
-        cross_product_geom = cut_line_vector.x() * geom_vector.y() - cut_line_vector.y() * geom_vector.x()
-        cross_product_clc = cut_line_vector.x() * clc_vector.y() - cut_line_vector.y() * clc_vector.x()
-
-        return cross_product_geom * cross_product_clc >= 0
 
     def getListOfAreaByQuery(self, query):
 
@@ -4955,7 +4009,7 @@ class MonitoringTools:
         d_base = str(self.dockwidget.lineEdit_dBase_directory.text()).replace('\\', '/')
         # check if base exist
         if not (str(d_base)):
-            self.appendDataToPlainTextEdit("Nie wskazano bazy danych!", self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
             return False
         else:
             return os.path.dirname(d_base)
@@ -4965,7 +4019,7 @@ class MonitoringTools:
         layer = self.dockwidget.mMapLayerComboBoxAraesPolygon.currentLayer()
         if not (str(layer)):
             CustomMessageBox.showWithTimeout(10, "Nie wybrano warstwy!", "", icon=QMessageBox.Warning)
-            self.appendDataToPlainTextEdit("Nie wskazano warstwy!", self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wybrano warstwy!")
             return False
         else:
             return layer
@@ -4977,7 +4031,7 @@ class MonitoringTools:
         # check if base exist
         if not (str(d_base)):
             CustomMessageBox.showWithTimeout(10, "Nie wskazano bazy danych!", "", icon=QMessageBox.Warning)
-            self.appendDataToPlainTextEdit("Nie wskazano bazy danych!", self.dockwidget.plainTextEdit_info)
+            self.dockwidget.label_warning.setText("Nie wskazano bazy danych!")
             return False
         else:
             return d_base
@@ -5034,30 +4088,30 @@ class MonitoringTools:
             # write multiple rows
             writer.writerows(data)
 
-    # def repair_geometry_and_resave(input_path, output_path):
-    #     # Load the input vector layer
-    #     input_layer = QgsVectorLayer(input_path, 'input_layer', 'ogr')
-    #
-    #     # Check if the layer is loaded successfully
-    #     if not input_layer.isValid():
-    #         print(f'Error: The input layer {input_path} failed to load!')
-    #         return
-    #
-    #     # Run the "native:fixgeometries" algorithm to repair geometry
-    #     feedback = QgsProcessingFeedback()
-    #     params = {'INPUT': input_layer, 'OUTPUT': 'memory:'}
-    #     result = processing.run("native:fixgeometries", params, feedback=feedback)
-    #
-    #     # Check if the algorithm ran successfully
-    #     if result['OUTPUT'] is None:
-    #         print('Error: Geometry repair failed!')
-    #         return
-    #
-    #     # Save the repaired layer to a new file
-    #     repaired_layer = result['OUTPUT']
-    #     QgsVectorFileWriter.writeAsVectorFormat(repaired_layer, output_path, 'utf-8', None, 'ESRI Shapefile')
-    #
-    #     print(f'Repaired geometry saved to {output_path}')
+    def repair_geometry_and_resave(input_path, output_path):
+        # Load the input vector layer
+        input_layer = QgsVectorLayer(input_path, 'input_layer', 'ogr')
+
+        # Check if the layer is loaded successfully
+        if not input_layer.isValid():
+            print(f'Error: The input layer {input_path} failed to load!')
+            return
+
+        # Run the "native:fixgeometries" algorithm to repair geometry
+        feedback = QgsProcessingFeedback()
+        params = {'INPUT': input_layer, 'OUTPUT': 'memory:'}
+        result = processing.run("native:fixgeometries", params, feedback=feedback)
+
+        # Check if the algorithm ran successfully
+        if result['OUTPUT'] is None:
+            print('Error: Geometry repair failed!')
+            return
+
+        # Save the repaired layer to a new file
+        repaired_layer = result['OUTPUT']
+        QgsVectorFileWriter.writeAsVectorFormat(repaired_layer, output_path, 'utf-8', None, 'ESRI Shapefile')
+
+        print(f'Repaired geometry saved to {output_path}')
 
 
     def removeMapLayerByName(self, layer_name_to_remove):
@@ -5165,10 +4219,6 @@ class MonitoringTools:
 
             # Snap
             self.dockwidget.pushButton_snaptool.clicked.connect(self.snap_vertices_to_rezerwaty)
-
-            # 3. Delete small holes
-            self.dockwidget.pushButton_microholes.clicked.connect(self.delete_small_holes)
-
 
 
             # T_0108
@@ -5335,17 +4385,18 @@ class MonitoringTools:
             self.dockwidget.pushButton10100.clicked.connect(self.run_control_10100)
             # 10282
             self.dockwidget.pushButton10282.clicked.connect(self.run_control_10282)
-            # 10100
-            self.dockwidget.pushButton10800.clicked.connect(self.run_control_10800)
-            # 10282
-            self.dockwidget.pushButton20021.clicked.connect(self.run_control_20021)
             #
             # K10000
-            self.dockwidget.pushButtonComplexDBControl.clicked.connect(self.execute_controls_based_on_conditions)
+            self.dockwidget.pushButtonK10000.clicked.connect(self.complex_control_general_data)
+            # K30000
+            self.dockwidget.pushButtonK30000.clicked.connect(self.complex_control_ratings)
+            # K20000
+            self.dockwidget.pushButtonK20000.clicked.connect(self.complex_control_phytoreleves)
+            # K10500
+            self.dockwidget.pushButtonK10500.clicked.connect(self.complex_control_threats)
 
-
-            # # test
-            self.dockwidget.pushButtonTest.clicked.connect(self.export_all_tables_to_csv)
+            # test
+            self.dockwidget.pushButtonTest.clicked.connect(self.run2_control_30100)
 
             # Kointrole zdjęć
             self.dockwidget.pushButton_picture_names.clicked.connect(self.check_pictures)

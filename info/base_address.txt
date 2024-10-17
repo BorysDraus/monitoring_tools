@@ -1,1 +1,1 @@
-D:/17_laczeniewarstw/05_24/2024_wymiana_danych/09_przemysl/05_2024/0911_annabugno-pogoda/01_baza/0911_annabugno-pogoda.db
+D:/17_laczeniewarstw/2024_wymiana_danych/02_brzeg/PRACOWNICY SPOZA ODDZIAŁU/09_2024/0209_magdalenadominiak/01_baza/0209_magdalenadominiak.db

@@ -1,5 +1,6 @@
 class ControlModel:
-    def __init__(self, area_id, year, error_code, error_name, error_poz_name, error_description, warning_flag, error_status_flag, error_query):
+    def __init__(self, area_id, year, error_code, error_name, error_poz_name, error_description, warning_flag,
+                 error_status_flag, error_query):
         self.area_id = area_id
         self.year = year
         self.error_code = error_code
@@ -9,6 +10,8 @@ class ControlModel:
         self.warning_flag = warning_flag
         self.error_status_flag = error_status_flag
         self.error_query = error_query
+
+
 
     def get_area_id(self):
         return self.area_id
@@ -63,3 +66,4 @@ class ControlModel:
 
     def set_error_query(self, error_query):
         self.error_query = error_query
+

@@ -6,8 +6,8 @@
 name=MonitoringTools
 qgisMinimumVersion=3.0
 description=Wetlands Green Life Monitoring Tools
-version=1.0
-author=Borys Draus
+version=1.2.0
+author=Borys Draus, Marcin Mionskowski, Ariel Franczak
 email=borys.draus@gmail.com
 
 about=Provide a brief description of the plugin and its purpose.
